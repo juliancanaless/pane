@@ -240,7 +240,18 @@ func runAsk(args []string, stdout io.Writer) error {
 	if len(args) < 2 {
 		return errors.New("usage: pane ask <session-id> <message>")
 	}
-	_, _ = fmt.Fprintf(stdout, "ask: not implemented yet (to %s)\n", args[0])
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestMessageSend, Payload: protocol.MessageSendRequestPayload(env, args[0], strings.Join(args[1:], " "))})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "message sent: %s\nthread: %s\nto: %s\n", payloadString(response, "message_id"), payloadString(response, "thread_id"), payloadString(response, "to_session"))
 	return nil
 }
 
@@ -248,7 +259,18 @@ func runInbox(args []string, stdout io.Writer) error {
 	if len(args) != 0 {
 		return errors.New("usage: pane inbox")
 	}
-	_, _ = fmt.Fprintln(stdout, "inbox: not implemented yet")
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestMessageList, Payload: protocol.EnvironmentPayload(env)})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprint(stdout, payloadString(response, "text"))
 	return nil
 }
 
@@ -256,6 +278,17 @@ func runReply(args []string, stdout io.Writer) error {
 	if len(args) < 2 {
 		return errors.New("usage: pane reply <message-id> <message>")
 	}
-	_, _ = fmt.Fprintf(stdout, "reply: not implemented yet (to %s)\n", args[0])
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestMessageReply, Payload: protocol.MessageReplyRequestPayload(env, args[0], strings.Join(args[1:], " "))})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "reply sent: %s\nthread: %s\nto: %s\n", payloadString(response, "message_id"), payloadString(response, "thread_id"), payloadString(response, "to_session"))
 	return nil
 }

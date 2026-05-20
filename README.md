@@ -80,11 +80,12 @@ This repository currently contains the early Go scaffold and first working slice
 - daemon-backed `pane init`, `pane status`, and `pane intent`
 - daemon-backed `pane board` with active session visibility
 - daemon-backed `pane summary` for session-specific startup context
+- daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
 - Unix socket daemon foundation
 - protocol codec and request types
 - initial tests
 
-The next major work is to add messaging, then file activity and git preflight behavior.
+The next major work is to surface message state in board/summary, then add file activity and git preflight behavior.
 
 ## Project shape
 

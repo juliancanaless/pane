@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -9,6 +10,8 @@ import (
 )
 
 const DefaultDirName = ".pane"
+
+var ErrNotFound = errors.New("not found")
 
 func DefaultDBPath(home string) string {
 	return filepath.Join(home, DefaultDirName, "pane.db")

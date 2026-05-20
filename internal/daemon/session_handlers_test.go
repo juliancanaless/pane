@@ -17,7 +17,7 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	}
 	defer db.Close()
 
-	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)))
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
 	env := map[string]any{
 		"pane_id":        "tty:/dev/ttys001",
 		"tty":            "/dev/ttys001",
@@ -68,5 +68,56 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	summaryText, ok := summaryResponse.Payload["text"].(string)
 	if !ok || !strings.Contains(summaryText, "[Pane] Session summary") || !strings.Contains(summaryText, "testing daemon-backed board") {
 		t.Fatalf("unexpected summary text: %#v", summaryResponse.Payload)
+	}
+}
+
+func TestMessageHandlers(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {})
+	initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {})
+	if !initA.OK || !initB.OK {
+		t.Fatalf("init failed: %#v %#v", initA, initB)
+	}
+	sessionA := initA.Payload["session_id"].(string)
+	sessionB := initB.Payload["session_id"].(string)
+
+	send := d.Handle(protocol.Request{Type: protocol.RequestMessageSend, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "to_session": sessionB, "body": "Are you done?"}}, func() {})
+	if !send.OK {
+		t.Fatalf("send failed: %#v", send)
+	}
+	messageID := send.Payload["message_id"].(string)
+
+	inboxB := d.Handle(protocol.Request{Type: protocol.RequestMessageList, Payload: envB}, func() {})
+	if !inboxB.OK {
+		t.Fatalf("inbox failed: %#v", inboxB)
+	}
+	text := inboxB.Payload["text"].(string)
+	if !strings.Contains(text, messageID) || !strings.Contains(text, "Are you done?") {
+		t.Fatalf("unexpected inbox: %s", text)
+	}
+
+	reply := d.Handle(protocol.Request{Type: protocol.RequestMessageReply, Payload: map[string]any{"pane_id": "pane-b", "workspace_root": "/workspace", "message_id": messageID, "body": "Yes"}}, func() {})
+	if !reply.OK {
+		t.Fatalf("reply failed: %#v", reply)
+	}
+	if reply.Payload["to_session"] != sessionA {
+		t.Fatalf("reply routed to wrong session: %#v", reply.Payload)
+	}
+
+	inboxA := d.Handle(protocol.Request{Type: protocol.RequestMessageList, Payload: envA}, func() {})
+	if !inboxA.OK {
+		t.Fatalf("inbox A failed: %#v", inboxA)
+	}
+	text = inboxA.Payload["text"].(string)
+	if !strings.Contains(text, "Yes") {
+		t.Fatalf("unexpected reply inbox: %s", text)
 	}
 }

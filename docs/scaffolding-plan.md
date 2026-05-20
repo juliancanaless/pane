@@ -81,10 +81,20 @@ Implemented after daemon-owned session/board flows:
 3. `pane summary` command.
 4. Tests for summary rendering and daemon summary handler.
 
+## Messaging slice
+
+Implemented after first-pass summaries:
+
+1. Message model ID generation and inbox renderer.
+2. Message store for save, find, queued inbox, and delivered marking.
+3. Daemon handlers for `MessageSend`, `MessageList`, and `MessageReply`.
+4. CLI commands for `pane ask`, `pane inbox`, and `pane reply`.
+5. Store, renderer, daemon handler, and local smoke tests.
+
 ## Next useful slice
 
-1. Implement `pane ask`, `pane inbox`, and `pane reply` against SQLite through the daemon.
-2. Surface unread/open messages in `pane board` and `pane summary`.
+1. Surface unread/open messages in `pane board` and `pane summary`.
+2. Improve message targeting/selection ergonomics for agents.
 3. Implement `pane git` passthrough to the real git binary.
 4. Add daemon-backed git preflight warnings.
 

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juliancanalez/pane/internal/board"
+	"github.com/juliancanalez/pane/internal/messages"
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/session"
 	"github.com/juliancanalez/pane/internal/store"
@@ -24,18 +25,19 @@ type Config struct {
 }
 
 type Daemon struct {
-	config  Config
-	started time.Time
-	db      *sql.DB
-	manager session.Manager
+	config       Config
+	started      time.Time
+	db           *sql.DB
+	manager      session.Manager
+	messageStore store.MessageStore
 }
 
 func New(config Config) *Daemon {
 	return &Daemon{config: config, started: time.Now()}
 }
 
-func NewForTest(config Config, manager session.Manager) *Daemon {
-	return &Daemon{config: config, started: time.Now(), manager: manager}
+func NewForTest(config Config, manager session.Manager, messageStore store.MessageStore) *Daemon {
+	return &Daemon{config: config, started: time.Now(), manager: manager, messageStore: messageStore}
 }
 
 func (d *Daemon) Run(ctx context.Context) error {
@@ -49,6 +51,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		}
 		d.db = db
 		d.manager = session.NewManager(store.NewSessionStore(db))
+		d.messageStore = store.NewMessageStore(db)
 		defer db.Close()
 	}
 	if err := os.RemoveAll(d.config.SocketPath); err != nil {
@@ -127,6 +130,12 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleGetBoard(request)
 	case protocol.RequestGetSummary:
 		return d.handleGetSummary(request)
+	case protocol.RequestMessageSend:
+		return d.handleMessageSend(request)
+	case protocol.RequestMessageList:
+		return d.handleMessageList(request)
+	case protocol.RequestMessageReply:
+		return d.handleMessageReply(request)
 	default:
 		return protocol.Failure(fmt.Sprintf("unsupported request type %q", request.Type))
 	}
@@ -202,6 +211,92 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	}
 	text := summary.Render(summary.FromSessions(workspaceRoot, current, sessions), time.Now())
 	return protocol.Success(map[string]any{"text": text})
+}
+
+func (d *Daemon) handleMessageSend(request protocol.Request) protocol.Response {
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	body := payloadString(request, "body")
+	if body == "" {
+		return protocol.Failure("message body cannot be empty")
+	}
+	message := messages.Message{
+		ID:          messages.NewID(),
+		FromSession: current.ID,
+		ToSession:   payloadString(request, "to_session"),
+		Body:        body,
+		State:       messages.StateQueued,
+		CreatedAt:   time.Now().Unix(),
+	}
+	if message.ToSession == "" {
+		return protocol.Failure("target session cannot be empty")
+	}
+	message.ThreadID = message.ID
+	if err := d.messageStore.Save(context.Background(), message); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"message_id": message.ID, "thread_id": message.ThreadID, "to_session": message.ToSession})
+}
+
+func (d *Daemon) handleMessageList(request protocol.Request) protocol.Response {
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	items, err := d.messageStore.ListQueuedForSession(context.Background(), current.ID)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	if err := d.messageStore.MarkDelivered(context.Background(), ids, time.Now().Unix()); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"text": messages.RenderInbox(items, time.Now()), "count": len(items)})
+}
+
+func (d *Daemon) handleMessageReply(request protocol.Request) protocol.Response {
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	original, err := d.messageStore.FindByID(context.Background(), payloadString(request, "message_id"))
+	if errors.Is(err, store.ErrNotFound) {
+		return protocol.Failure("message not found")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	body := payloadString(request, "body")
+	if body == "" {
+		return protocol.Failure("message body cannot be empty")
+	}
+	reply := messages.Message{
+		ID:          messages.NewID(),
+		ThreadID:    original.ThreadID,
+		FromSession: current.ID,
+		ToSession:   original.FromSession,
+		Body:        body,
+		State:       messages.StateQueued,
+		CreatedAt:   time.Now().Unix(),
+	}
+	if err := d.messageStore.Save(context.Background(), reply); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"message_id": reply.ID, "thread_id": reply.ThreadID, "to_session": reply.ToSession})
 }
 
 func payloadString(request protocol.Request, key string) string {
