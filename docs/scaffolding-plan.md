@@ -72,10 +72,19 @@ Implemented after the shared board slice:
 3. Handler tests for daemon-backed session and board flows.
 4. Local smoke test for daemon start + init + intent + status + board + stop.
 
+## Summary slice
+
+Implemented after daemon-owned session/board flows:
+
+1. `internal/summary` model and renderer.
+2. Daemon `GetSummary` handler.
+3. `pane summary` command.
+4. Tests for summary rendering and daemon summary handler.
+
 ## Next useful slice
 
-1. Implement `pane summary` as a session-specific startup view derived from the board.
-2. Implement `pane ask`, `pane inbox`, and `pane reply` against SQLite through the daemon.
+1. Implement `pane ask`, `pane inbox`, and `pane reply` against SQLite through the daemon.
+2. Surface unread/open messages in `pane board` and `pane summary`.
 3. Implement `pane git` passthrough to the real git binary.
 4. Add daemon-backed git preflight warnings.
 

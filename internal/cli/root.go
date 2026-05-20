@@ -24,7 +24,7 @@ Usage:
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
   pane board                        Show the workspace shared awareness board
-  pane summary                      Show startup context for this session (not implemented yet)
+  pane summary                      Show startup context for this session
 
   pane daemon health                Check daemon health over the Unix socket
   pane daemon stop                  Ask the daemon to stop cleanly
@@ -58,7 +58,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	case "board":
 		return runBoard(args[1:], stdout)
 	case "summary":
-		return runSessionCommand("summary", args[1:], stdout)
+		return runSummary(args[1:], stdout)
 	case "intent":
 		return runIntent(args[1:], stdout)
 	case "git":
@@ -156,6 +156,25 @@ func runBoard(args []string, stdout io.Writer) error {
 		return err
 	}
 	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestGetBoard, Payload: protocol.BoardRequestPayload(env)})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprint(stdout, payloadString(response, "text"))
+	return nil
+}
+
+func runSummary(args []string, stdout io.Writer) error {
+	if len(args) != 0 {
+		return errors.New("usage: pane summary")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestGetSummary, Payload: protocol.EnvironmentPayload(env)})
 	if err != nil {
 		return err
 	}

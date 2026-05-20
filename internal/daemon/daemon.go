@@ -15,6 +15,7 @@ import (
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/session"
 	"github.com/juliancanalez/pane/internal/store"
+	"github.com/juliancanalez/pane/internal/summary"
 )
 
 type Config struct {
@@ -124,6 +125,8 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleSessionIntent(request)
 	case protocol.RequestGetBoard:
 		return d.handleGetBoard(request)
+	case protocol.RequestGetSummary:
+		return d.handleGetSummary(request)
 	default:
 		return protocol.Failure(fmt.Sprintf("unsupported request type %q", request.Type))
 	}
@@ -181,6 +184,23 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 		return protocol.Failure(err.Error())
 	}
 	text := board.Render(board.FromSessions(workspaceRoot, sessions), time.Now())
+	return protocol.Success(map[string]any{"text": text})
+}
+
+func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
+	workspaceRoot := payloadString(request, "workspace_root")
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), workspaceRoot)
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	sessions, err := d.manager.ListActive(context.Background(), workspaceRoot)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	text := summary.Render(summary.FromSessions(workspaceRoot, current, sessions), time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
 

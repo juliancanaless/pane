@@ -60,4 +60,13 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	if !ok || !strings.Contains(text, "testing daemon-backed board") {
 		t.Fatalf("unexpected board text: %#v", boardResponse.Payload)
 	}
+
+	summaryResponse := d.Handle(protocol.Request{Type: protocol.RequestGetSummary, Payload: env}, func() {})
+	if !summaryResponse.OK {
+		t.Fatalf("summary failed: %#v", summaryResponse)
+	}
+	summaryText, ok := summaryResponse.Payload["text"].(string)
+	if !ok || !strings.Contains(summaryText, "[Pane] Session summary") || !strings.Contains(summaryText, "testing daemon-backed board") {
+		t.Fatalf("unexpected summary text: %#v", summaryResponse.Payload)
+	}
 }

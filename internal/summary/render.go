@@ -1,0 +1,85 @@
+package summary
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+	"time"
+)
+
+func Render(value StartupSummary, now time.Time) string {
+	var out strings.Builder
+	fmt.Fprintf(&out, "[Pane] Session summary\n")
+	fmt.Fprintf(&out, "Workspace: %s\n", value.WorkspaceRoot)
+	fmt.Fprintf(&out, "\nCurrent session: %s — %s", value.Current.SessionID, value.Current.Status)
+	if value.Current.Branch != "" {
+		fmt.Fprintf(&out, " — %s", value.Current.Branch)
+	}
+	fmt.Fprintf(&out, "\n")
+	fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(value.Current.LastIntent))
+	fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, value.Current.CWD))
+	fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(value.Current.LastSeenAt, now))
+
+	fmt.Fprintf(&out, "\nOther sessions: %d\n", len(value.Peers))
+	if len(value.Peers) == 0 {
+		fmt.Fprintf(&out, "  None currently visible in this workspace.\n")
+		return out.String()
+	}
+
+	for _, peer := range value.Peers {
+		fmt.Fprintf(&out, "\n%s — %s", peer.SessionID, peer.Status)
+		if peer.Branch != "" {
+			fmt.Fprintf(&out, " — %s", peer.Branch)
+		}
+		fmt.Fprintf(&out, "\n")
+		fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(peer.LastIntent))
+		fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, peer.CWD))
+		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(peer.LastSeenAt, now))
+	}
+
+	return out.String()
+}
+
+func displayIntent(intent string) string {
+	if strings.TrimSpace(intent) == "" {
+		return "not set"
+	}
+	return intent
+}
+
+func displayPath(workspaceRoot, path string) string {
+	if path == "" {
+		return "unknown"
+	}
+	if workspaceRoot == "" {
+		return path
+	}
+	relative, err := filepath.Rel(workspaceRoot, path)
+	if err != nil || strings.HasPrefix(relative, "..") {
+		return path
+	}
+	if relative == "." {
+		return "."
+	}
+	return relative
+}
+
+func relativeTime(timestamp int64, now time.Time) string {
+	if timestamp <= 0 {
+		return "unknown"
+	}
+	delta := now.Sub(time.Unix(timestamp, 0))
+	if delta < 0 {
+		delta = 0
+	}
+	if delta < time.Minute {
+		return fmt.Sprintf("%ds ago", int(delta.Seconds()))
+	}
+	if delta < time.Hour {
+		return fmt.Sprintf("%dm ago", int(delta.Minutes()))
+	}
+	if delta < 24*time.Hour {
+		return fmt.Sprintf("%dh ago", int(delta.Hours()))
+	}
+	return fmt.Sprintf("%dd ago", int(delta.Hours()/24))
+}
