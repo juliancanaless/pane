@@ -1,29 +1,25 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"time"
 
-	"github.com/juliancanalez/pane/internal/session"
+	"github.com/juliancanalez/pane/internal/daemon"
+	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/store"
 )
 
-func sessionRuntime() (session.Environment, session.Manager, func(), error) {
-	env, err := session.DetectEnvironment()
+func sendDaemonRequest(request protocol.Request) (protocol.Response, error) {
+	socket, err := socketPath()
 	if err != nil {
-		return session.Environment{}, session.Manager{}, func() {}, err
+		return protocol.Response{}, err
 	}
-	dbPath, err := databasePath()
+	response, err := daemon.Client{SocketPath: socket}.Send(request)
 	if err != nil {
-		return session.Environment{}, session.Manager{}, func() {}, err
+		return protocol.Response{}, fmt.Errorf("Pane daemon is not running or is unreachable; start it with `pane daemon start`: %w", err)
 	}
-	db, err := store.Open(dbPath)
-	if err != nil {
-		return session.Environment{}, session.Manager{}, func() {}, err
-	}
-	cleanup := func() { _ = db.Close() }
-	manager := session.NewManager(store.NewSessionStore(db))
-	return env, manager, cleanup, nil
+	return response, nil
 }
 
 func databasePath() (string, error) {

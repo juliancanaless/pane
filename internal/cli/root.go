@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juliancanalez/pane/internal/board"
 	"github.com/juliancanalez/pane/internal/daemon"
 	"github.com/juliancanalez/pane/internal/gitguard"
 	"github.com/juliancanalez/pane/internal/protocol"
@@ -19,13 +18,14 @@ It tracks pane-based sessions, remembers recent activity, routes context between
 sessions, and adds guardrails at high-risk moments.
 
 Usage:
+  pane daemon start                 Start the local Pane shared-memory daemon
+
   pane init                         Register or resume this terminal pane as a Pane session
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
   pane board                        Show the workspace shared awareness board
   pane summary                      Show startup context for this session (not implemented yet)
 
-  pane daemon start                 Start the local Pane shared-memory daemon
   pane daemon health                Check daemon health over the Unix socket
   pane daemon stop                  Ask the daemon to stop cleanly
 
@@ -34,6 +34,8 @@ Usage:
   pane ask <session-id> <message>   Send an async coordination question to another session
   pane inbox                        Show unread coordination messages for this session
   pane reply <message-id> <message> Reply to a coordination thread
+
+Session and board commands require the daemon to be running.
 
 Environment overrides:
   PANE_DB_PATH                      Use a custom SQLite database path
@@ -126,27 +128,22 @@ func runInit(args []string, stdout io.Writer) error {
 	if len(args) != 0 {
 		return errors.New("usage: pane init")
 	}
-	env, manager, cleanup, err := sessionRuntime()
+	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
-
-	result, err := manager.Init(context.Background(), session.InitInput{
-		PaneID:        env.PaneID,
-		TTY:           env.TTY,
-		WorkspaceRoot: env.WorkspaceRoot,
-		CWD:           env.CWD,
-		Branch:        env.Branch,
-	})
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionInit, Payload: protocol.EnvironmentPayload(env)})
 	if err != nil {
 		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
 	}
 	state := "created"
-	if result.Resumed {
+	if payloadBool(response, "resumed") {
 		state = "resumed"
 	}
-	_, _ = fmt.Fprintf(stdout, "session %s: %s\nbranch: %s\nworkspace: %s\n", state, result.Session.ID, result.Session.Branch, result.Session.WorkspaceRoot)
+	_, _ = fmt.Fprintf(stdout, "session %s: %s\nbranch: %s\nworkspace: %s\n", state, payloadString(response, "session_id"), payloadString(response, "branch"), payloadString(response, "workspace_root"))
 	return nil
 }
 
@@ -154,17 +151,18 @@ func runBoard(args []string, stdout io.Writer) error {
 	if len(args) != 0 {
 		return errors.New("usage: pane board")
 	}
-	env, manager, cleanup, err := sessionRuntime()
+	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
-
-	sessions, err := manager.ListActive(context.Background(), env.WorkspaceRoot)
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestGetBoard, Payload: protocol.BoardRequestPayload(env)})
 	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprint(stdout, board.Render(board.FromSessions(env.WorkspaceRoot, sessions), now()))
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprint(stdout, payloadString(response, "text"))
 	return nil
 }
 
@@ -172,20 +170,18 @@ func runStatus(args []string, stdout io.Writer) error {
 	if len(args) != 0 {
 		return errors.New("usage: pane status")
 	}
-	env, manager, cleanup, err := sessionRuntime()
+	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	defer cleanup()
-
-	current, err := manager.Status(context.Background(), env.PaneID, env.WorkspaceRoot)
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionStatus, Payload: protocol.EnvironmentPayload(env)})
 	if err != nil {
-		if errors.Is(err, session.ErrNotFound) {
-			return errors.New("no Pane session found for this pane/workspace; run `pane init` first")
-		}
 		return err
 	}
-	_, _ = fmt.Fprintf(stdout, "session: %s\nstatus: %s\nbranch: %s\nintent: %s\nworkspace: %s\n", current.ID, current.Status, current.Branch, current.LastIntent, current.WorkspaceRoot)
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "session: %s\nstatus: %s\nbranch: %s\nintent: %s\nworkspace: %s\n", payloadString(response, "session_id"), payloadString(response, "status"), payloadString(response, "branch"), payloadString(response, "intent"), payloadString(response, "workspace_root"))
 	return nil
 }
 
@@ -193,24 +189,19 @@ func runIntent(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
 		return errors.New("usage: pane intent <text>")
 	}
-	env, manager, cleanup, err := sessionRuntime()
+	env, err := session.DetectEnvironment()
 	if err != nil {
-		return err
-	}
-	defer cleanup()
-
-	current, err := manager.Status(context.Background(), env.PaneID, env.WorkspaceRoot)
-	if err != nil {
-		if errors.Is(err, session.ErrNotFound) {
-			return errors.New("no Pane session found for this pane/workspace; run `pane init` first")
-		}
 		return err
 	}
 	intent := strings.Join(args, " ")
-	if err := manager.SetIntent(context.Background(), current.ID, intent); err != nil {
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionIntent, Payload: protocol.IntentPayload(env, intent)})
+	if err != nil {
 		return err
 	}
-	_, _ = fmt.Fprintf(stdout, "intent updated: %s\n", intent)
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "intent updated: %s\n", payloadString(response, "intent"))
 	return nil
 }
 

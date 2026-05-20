@@ -63,13 +63,21 @@ Implemented after the daemon socket slice:
 3. `pane board` command showing active sessions, status, branch, intent, cwd, and last seen.
 4. Tests for board rendering and session listing.
 
+## Daemon-owned session/board slice
+
+Implemented after the shared board slice:
+
+1. Daemon handlers for session init, status, intent, and board requests.
+2. CLI session/board commands now call the daemon instead of opening SQLite directly.
+3. Handler tests for daemon-backed session and board flows.
+4. Local smoke test for daemon start + init + intent + status + board + stop.
+
 ## Next useful slice
 
-1. Move CLI session and board operations from direct SQLite access to daemon requests.
-2. Implement `pane summary` as a session-specific startup view derived from the board.
-3. Implement `pane ask`, `pane inbox`, and `pane reply` against SQLite.
-4. Implement `pane git` passthrough to the real git binary.
-5. Add daemon-backed git preflight warnings.
+1. Implement `pane summary` as a session-specific startup view derived from the board.
+2. Implement `pane ask`, `pane inbox`, and `pane reply` against SQLite through the daemon.
+3. Implement `pane git` passthrough to the real git binary.
+4. Add daemon-backed git preflight warnings.
 
 ## Validation commands
 
