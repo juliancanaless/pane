@@ -33,6 +33,10 @@ func DefaultPIDPath(home string) string {
 	return filepath.Join(home, DefaultDirName, "pane.pid")
 }
 
+func DefaultLockPath(home string) string {
+	return filepath.Join(home, DefaultDirName, "pane.lock")
+}
+
 func Open(path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err

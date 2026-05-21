@@ -54,6 +54,38 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(d.config.SocketPath), 0o755); err != nil {
 		return err
 	}
+
+	// Acquire exclusive process lock
+	lockPath := strings.TrimSuffix(d.config.PIDPath, filepath.Ext(d.config.PIDPath)) + ".lock"
+	if lockPath == ".lock" {
+		lockPath = filepath.Join(filepath.Dir(d.config.SocketPath), "pane.lock")
+	}
+	lockFile, err := AcquireLock(lockPath)
+	if err != nil {
+		return err
+	}
+	defer ReleaseLock(lockFile)
+
+	// Clean stale PID/socket from a previous crash
+	if cleaned, err := CleanStale(d.config.PIDPath, d.config.SocketPath); err != nil {
+		ReleaseLock(lockFile)
+		return err
+	} else if cleaned {
+		fmt.Fprintf(os.Stderr, "cleaned stale daemon state\n")
+	}
+
+	// Set up log redirection and rotation
+	if d.config.LogPath != "" {
+		logFile, err := SetupLogging(d.config.LogPath)
+		if err != nil {
+			return fmt.Errorf("setup logging: %w", err)
+		}
+		if logFile != nil {
+			defer logFile.Close()
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "daemon starting on %s\n", d.config.SocketPath)
 	if d.config.DBPath != "" {
 		db, err := store.Open(d.config.DBPath)
 		if err != nil {

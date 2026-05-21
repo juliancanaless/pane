@@ -21,7 +21,7 @@ It tracks pane-based sessions, remembers recent activity, routes context between
 sessions, and adds guardrails at high-risk moments.
 
 Usage:
-  pane daemon start                 Start the local Pane shared-memory daemon
+  pane daemon start [--background]   Start the local Pane shared-memory daemon
   pane daemon status                Show daemon process, socket, DB, and log paths
 
   pane init                         Register or resume this terminal pane as a Pane session
@@ -110,8 +110,17 @@ func Run(args []string, stdout, stderr io.Writer) error {
 }
 
 func runDaemon(args []string, stdout io.Writer) error {
-	if len(args) != 1 {
-		return errors.New("usage: pane daemon start|stop|health|status")
+	if len(args) < 1 {
+		return errors.New("usage: pane daemon start [--background]|stop|health|status")
+	}
+	subcmd := args[0]
+	background := false
+	for _, arg := range args[1:] {
+		if arg == "--background" || arg == "-b" {
+			background = true
+		} else {
+			return fmt.Errorf("unknown flag: %s", arg)
+		}
 	}
 	socket, err := socketPath()
 	if err != nil {
@@ -131,13 +140,20 @@ func runDaemon(args []string, stdout io.Writer) error {
 	}
 	client := daemon.Client{SocketPath: socket}
 
-	switch args[0] {
+	switch subcmd {
 	case "start":
 		if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
 			_, _ = fmt.Fprintf(stdout, "daemon already running\npid: %v\nsocket: %s\ndb: %s\nlog: %s\n", response.Payload["pid"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["log_path"])
 			return nil
 		}
-		_, _ = fmt.Fprintf(stdout, "daemon starting on %s\n", socket)
+		if background {
+			_, _ = fmt.Fprintf(stdout, "starting daemon in background...\n")
+			if err := daemon.StartBackground(socket); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(stdout, "daemon started\nsocket: %s\ndb: %s\nlog: %s\n", socket, db, log)
+			return nil
+		}
 		return daemon.New(daemon.Config{SocketPath: socket, DBPath: db, PIDPath: pid, LogPath: log}).Run(context.Background())
 	case "health":
 		response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth})
@@ -162,7 +178,7 @@ func runDaemon(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "daemon: %s\n", response.Payload["status"])
 		return nil
 	default:
-		return errors.New("usage: pane daemon start|stop|health|status")
+		return errors.New("usage: pane daemon start [--background]|stop|health|status")
 	}
 }
 
