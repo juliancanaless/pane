@@ -11,6 +11,7 @@ type fakeStore struct {
 	saved     Session
 	resumable Session
 	status    Session
+	byID      Session
 	findErr   error
 }
 
@@ -34,6 +35,9 @@ func (f *fakeStore) FindByPaneWorkspace(context.Context, string, string) (Sessio
 }
 
 func (f *fakeStore) FindByID(_ context.Context, sessionID string) (Session, error) {
+	if f.byID.ID == sessionID {
+		return f.byID, nil
+	}
 	if f.status.ID == sessionID {
 		return f.status, nil
 	}
@@ -125,6 +129,23 @@ func TestManagerContinueLinksCurrentPaneToParent(t *testing.T) {
 		t.Fatalf("parent id = %q", result.Session.ParentID)
 	}
 	if result.Session.LastIntent != "finish docs" {
+		t.Fatalf("intent = %q", result.Session.LastIntent)
+	}
+}
+
+func TestManagerContinueOverwritesExistingPaneIntentWithParentIntent(t *testing.T) {
+	store := &fakeStore{
+		status: Session{ID: "session-current", WorkspaceRoot: "/repo", LastIntent: "old current intent"},
+		byID:   Session{ID: "session-parent", WorkspaceRoot: "/repo", LastIntent: "parent handoff intent"},
+	}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	result, err := manager.Continue(context.Background(), InitInput{PaneID: "pane-2", WorkspaceRoot: "/repo", CWD: "/repo", Branch: "main"}, "session-parent")
+	if err != nil {
+		t.Fatalf("Continue returned error: %v", err)
+	}
+	if result.Session.LastIntent != "parent handoff intent" {
 		t.Fatalf("intent = %q", result.Session.LastIntent)
 	}
 }

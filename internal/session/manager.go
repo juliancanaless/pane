@@ -99,6 +99,7 @@ func (m Manager) Continue(ctx context.Context, input InitInput, parentID string)
 		current.TTY = input.TTY
 		current.CWD = input.CWD
 		current.Branch = input.Branch
+		current.LastIntent = parent.LastIntent
 		current.LastSeenAt = now
 		current.Status = StatusActive
 		current.ParentID = parent.ID
