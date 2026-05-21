@@ -42,6 +42,12 @@ type GitPayload struct {
 	Result        string   `json:"result,omitempty"`
 }
 
+func ContinuePayload(value session.Environment, parentSessionID string) map[string]any {
+	payload := EnvironmentPayload(value)
+	payload["parent_session_id"] = parentSessionID
+	return payload
+}
+
 func EnvironmentPayload(value session.Environment) map[string]any {
 	return map[string]any{
 		"pane_id":        value.PaneID,
@@ -62,6 +68,22 @@ func IntentPayload(value session.Environment, intent string) map[string]any {
 
 func BoardRequestPayload(value session.Environment) map[string]any {
 	return map[string]any{"workspace_root": value.WorkspaceRoot}
+}
+
+func HistoryRequestPayload(value session.Environment, since int64) map[string]any {
+	payload := BoardRequestPayload(value)
+	if since > 0 {
+		payload["since"] = since
+	}
+	return payload
+}
+
+func StateRequestPayload(value session.Environment, key, jsonValue, prefix string) map[string]any {
+	payload := EnvironmentPayload(value)
+	payload["key"] = key
+	payload["value_json"] = jsonValue
+	payload["prefix"] = prefix
+	return payload
 }
 
 func MessageSendRequestPayload(value session.Environment, toSession, body string) map[string]any {

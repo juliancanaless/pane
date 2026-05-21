@@ -33,7 +33,18 @@ func (f *fakeStore) FindByPaneWorkspace(context.Context, string, string) (Sessio
 	return f.status, nil
 }
 
+func (f *fakeStore) FindByID(_ context.Context, sessionID string) (Session, error) {
+	if f.status.ID == sessionID {
+		return f.status, nil
+	}
+	return Session{}, ErrNotFound
+}
+
 func (f *fakeStore) ListActiveByWorkspace(context.Context, string) ([]Session, error) {
+	return []Session{f.status}, nil
+}
+
+func (f *fakeStore) ListRecentByWorkspace(context.Context, string, int) ([]Session, error) {
 	return []Session{f.status}, nil
 }
 
@@ -98,5 +109,22 @@ func TestManagerInitReturnsStoreErrors(t *testing.T) {
 	_, err := manager.Init(context.Background(), InitInput{})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestManagerContinueLinksCurrentPaneToParent(t *testing.T) {
+	store := &fakeStore{status: Session{ID: "session-parent", WorkspaceRoot: "/repo", LastIntent: "finish docs"}}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	result, err := manager.Continue(context.Background(), InitInput{PaneID: "pane-2", WorkspaceRoot: "/repo", CWD: "/repo", Branch: "main"}, "session-parent")
+	if err != nil {
+		t.Fatalf("Continue returned error: %v", err)
+	}
+	if result.Session.ParentID != "session-parent" {
+		t.Fatalf("parent id = %q", result.Session.ParentID)
+	}
+	if result.Session.LastIntent != "finish docs" {
+		t.Fatalf("intent = %q", result.Session.LastIntent)
 	}
 }

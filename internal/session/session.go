@@ -23,4 +23,5 @@ type Session struct {
 	StartedAt     int64
 	LastSeenAt    int64
 	Status        Status
+	ParentID      string
 }

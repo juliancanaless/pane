@@ -19,8 +19,8 @@ func NewSessionStore(db *sql.DB) SessionStore {
 func (s SessionStore) Save(ctx context.Context, value session.Session) error {
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO sessions (
-    session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
     pane_id = excluded.pane_id,
     tty = excluded.tty,
@@ -29,14 +29,15 @@ ON CONFLICT(session_id) DO UPDATE SET
     branch = excluded.branch,
     last_intent = excluded.last_intent,
     last_seen_at = excluded.last_seen_at,
-    status = excluded.status
-`, value.ID, value.PaneID, value.TTY, value.WorkspaceRoot, value.CWD, value.Branch, value.LastIntent, value.StartedAt, value.LastSeenAt, string(value.Status))
+    status = excluded.status,
+    parent_session_id = excluded.parent_session_id
+`, value.ID, value.PaneID, value.TTY, value.WorkspaceRoot, value.CWD, value.Branch, value.LastIntent, value.StartedAt, value.LastSeenAt, string(value.Status), nullableString(value.ParentID))
 	return err
 }
 
 func (s SessionStore) FindResumable(ctx context.Context, paneID, workspaceRoot, branch string, seenAfter int64) (session.Session, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status
+SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id
 FROM sessions
 WHERE pane_id = ?
   AND workspace_root = ?
@@ -51,7 +52,7 @@ LIMIT 1
 
 func (s SessionStore) FindByPaneWorkspace(ctx context.Context, paneID, workspaceRoot string) (session.Session, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status
+SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id
 FROM sessions
 WHERE pane_id = ?
   AND workspace_root = ?
@@ -62,9 +63,19 @@ LIMIT 1
 	return scanSession(row)
 }
 
+func (s SessionStore) FindByID(ctx context.Context, sessionID string) (session.Session, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id
+FROM sessions
+WHERE session_id = ?
+LIMIT 1
+`, sessionID)
+	return scanSession(row)
+}
+
 func (s SessionStore) ListActiveByWorkspace(ctx context.Context, workspaceRoot string) ([]session.Session, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status
+SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id
 FROM sessions
 WHERE workspace_root = ?
   AND status IN ('active', 'idle')
@@ -74,19 +85,22 @@ ORDER BY last_seen_at DESC
 		return nil, err
 	}
 	defer rows.Close()
+	return scanSessions(rows)
+}
 
-	var sessions []session.Session
-	for rows.Next() {
-		value, err := scanSession(rows)
-		if err != nil {
-			return nil, err
-		}
-		sessions = append(sessions, value)
-	}
-	if err := rows.Err(); err != nil {
+func (s SessionStore) ListRecentByWorkspace(ctx context.Context, workspaceRoot string, limit int) ([]session.Session, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id
+FROM sessions
+WHERE workspace_root = ?
+ORDER BY last_seen_at DESC
+LIMIT ?
+`, workspaceRoot, limit)
+	if err != nil {
 		return nil, err
 	}
-	return sessions, nil
+	defer rows.Close()
+	return scanSessions(rows)
 }
 
 func (s SessionStore) UpdateIntent(ctx context.Context, sessionID, intent string, seenAt int64) error {
@@ -115,6 +129,7 @@ type scanner interface {
 func scanSession(row scanner) (session.Session, error) {
 	var value session.Session
 	var status string
+	var parent sql.NullString
 	err := row.Scan(
 		&value.ID,
 		&value.PaneID,
@@ -126,6 +141,7 @@ func scanSession(row scanner) (session.Session, error) {
 		&value.StartedAt,
 		&value.LastSeenAt,
 		&status,
+		&parent,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return session.Session{}, session.ErrNotFound
@@ -134,5 +150,28 @@ func scanSession(row scanner) (session.Session, error) {
 		return session.Session{}, err
 	}
 	value.Status = session.Status(status)
+	value.ParentID = parent.String
 	return value, nil
+}
+
+func scanSessions(rows *sql.Rows) ([]session.Session, error) {
+	var sessions []session.Session
+	for rows.Next() {
+		value, err := scanSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
 }

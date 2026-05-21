@@ -24,6 +24,20 @@ Multi-agent coding currently feels powerful but fragile:
 
 Pane's long-term vision is to become the local shared-memory layer for that workflow: a fast, private, provider-agnostic surface where coding agents coordinate through the filesystem, terminal pane identity, command interception, file activity, and explicit messages.
 
+## Core use cases
+
+Pane is meant to solve these workflows first:
+
+- **Agent restart continuity** — a new agent can inherit useful context instead of starting cold.
+- **Cross-pane handoff** — work can move from one terminal pane or agent to another with explicit lineage.
+- **Concurrent agent awareness** — agents can see nearby work, current intents, recent files, and open questions.
+- **Human handoff relief** — the human should not have to manually summarize and relay every bit of shared context.
+- **Workspace memory over terminal scrollback** — important context becomes queryable local memory instead of disappearing into logs.
+- **Safer high-risk operations** — shared awareness can warn before git operations that may disrupt another session.
+- **Provider-agnostic collaboration** — any agent that can run shell commands can participate.
+
+See [`USE_CASES.md`](USE_CASES.md) for the fuller use-case narrative.
+
 ## What Pane gives agents
 
 Pane gives each session a durable identity tied to the terminal pane, not the agent process. If one agent exits and another starts in the same pane, the new agent can inherit the pane's context: current intent, recent activity, messages, and nearby work from other sessions.
@@ -61,10 +75,14 @@ A Pane-aware agent should use Pane commands during its normal loop:
 pane init
 pane board
 pane summary
+pane history --since 24h
+pane continue <session-id>
 pane intent "working on auth middleware"
 pane inbox
 pane ask <session-id> "are you still touching auth/session.ts?"
 pane reply <message-id> "done with that file"
+pane state set agent.notes '{"handoff":"tests need review"}'
+pane state get agent.notes
 pane git status
 ```
 
@@ -74,6 +92,7 @@ Agents should update `pane intent` whenever they switch tasks. The board is only
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture and design rules
 - [`PROGRESS.md`](PROGRESS.md) — committed phase plan, current status, and testing/dogfooding checklist
+- [`USE_CASES.md`](USE_CASES.md) — concrete problems and workflows Pane is meant to solve
 - [`REFRAMING.md`](REFRAMING.md) — long-term reframe from coordination tool to environment-as-product
 - [`docs/architecture.md`](docs/architecture.md) — detailed V1 technical architecture
 - [`docs/80-20-overview.md`](docs/80-20-overview.md) — V1 product scope
@@ -87,15 +106,17 @@ This repository currently contains the early Go scaffold and first working slice
 - pane/TTY session identity
 - daemon-backed `pane init`, `pane status`, and `pane intent`
 - daemon-backed `pane board` with active session visibility and coordination indicators
-- daemon-backed `pane summary` with session-specific startup context, unread messages, and recent files
+- daemon-backed `pane summary` with session-specific startup context, unread messages, recent files, and continuity history
 - daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
 - first-pass daemon-observed file activity
+- first-pass sequential continuity with `pane continue` and `pane history`
+- first-pass generic agent state with `pane state set|get|list|delete`
 - first-pass `pane git` passthrough, preflight, and event recording
 - Unix socket daemon foundation
 - protocol codec and request types
 - initial tests
 
-The next major work is shell/agent integration, while continuing to dogfood and tune board, summary, messaging, file activity, and git guardrails. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is hardening continuity, heartbeat, daemon lifecycle, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 

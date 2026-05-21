@@ -18,7 +18,7 @@ The daemon is the source of truth. The CLI should stay thin: detect local contex
 
 ## Product model
 
-Pane is not primarily a git tool, a dashboard, or an orchestrator.
+Pane is not primarily a git tool, a dashboard, or an orchestrator. The concrete workflows Pane is meant to solve are documented in `USE_CASES.md`.
 
 Pane is an environment layer for agents:
 
@@ -42,9 +42,12 @@ It exposes commands such as:
 - `pane intent <text>`
 - `pane board`
 - `pane summary`
+- `pane continue <session-id>`
+- `pane history [--since <duration>]`
 - `pane ask <session-id> <message>`
 - `pane inbox`
 - `pane reply <message-id> <message>`
+- `pane state set|get|list|delete ...`
 - `pane git <args...>`
 
 ### CLI layer: `internal/cli`
@@ -75,10 +78,11 @@ The CLI and daemon communicate over a Unix socket using:
 Current request families:
 
 - daemon health/stop
-- session init/status/intent
+- session init/status/intent/continue/history
 - board/summary
 - message send/list/reply
-- future git preflight/record
+- generic state set/get/list/delete
+- git preflight/record
 
 ### Daemon layer: `internal/daemon`
 
@@ -90,9 +94,9 @@ Responsibilities:
 - own session manager and message store
 - handle CLI requests
 - generate board and summary views
-- eventually run file watchers
-- eventually evaluate git preflight risk
-- eventually maintain activity/history/state APIs
+- run file watchers
+- evaluate git preflight risk
+- maintain activity/history/state APIs
 
 The daemon is what makes Pane shared memory rather than a collection of disconnected commands.
 
@@ -106,18 +110,18 @@ Current tables:
 - `messages`
 - `file_activity`
 - `git_events`
+- `agent_state`
 
 Current stores:
 
-- session store
+- session store, including parent-session lineage and history queries
 - message store
-
-Future stores:
-
 - file activity store
 - git event store
-- session lineage/history store
 - generic namespaced state store
+
+Future stores:
+- richer lineage/history stores
 
 ### Session layer: `internal/session`
 
@@ -171,9 +175,9 @@ It is narrower than `pane board` and oriented around:
 - who else is nearby?
 - what context should I load before acting?
 
-Current summaries include current session, peer sessions, unread messages, awaiting reply counts, and recent files for the current session.
+Current summaries include current session, peer sessions, unread messages, awaiting reply counts, recent files for the current session, and first-pass continuity context from parent/recent sessions.
 
-Future summaries should include lineage, unresolved decisions, hot directories, overlap, and richer activity history.
+Future summaries should include unresolved decisions, hot directories, overlap, lineage chains, and richer activity history.
 
 ### Messages layer: `internal/messages`
 
@@ -245,24 +249,25 @@ CLI detects current session
 6. File activity and working sets — first pass done
 7. Git passthrough and preflight — first pass done
 8. Shell/agent integration — first pass done
-9. Sequential continuity — next
+9. Sequential continuity — first pass done
+10. Generic agent state — first pass done
 
 ## V2/V3 direction from the reframe
 
 The `REFRAMING.md` direction widens the lens without changing the V1 foundation.
 
-V2 should add sequential continuity:
+V2 starts sequential continuity:
 
-- session lineage
+- session lineage via parent session links
 - `pane continue`
 - richer `pane summary` from history
 - `pane history` for work tracking
 
-V3 should add generic agent memory:
+V3 starts generic agent memory:
 
 - `pane state set/get/list/delete`
-- namespaced state APIs
-- integrations for specialized agents such as Neon/APM
+- workspace-scoped namespaced JSON state
+- future integrations for specialized agents such as Neon/APM
 
 ## Shell and agent integration
 

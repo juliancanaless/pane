@@ -76,9 +76,9 @@ These are important but not implemented yet:
 - file working-set overlap detection
 - daemon auto-start outside shell hook
 - PID/lock/log lifecycle
-- session lineage / `pane continue`
-- `pane history`
-- generic `pane state` API
+- richer session lineage beyond first parent links
+- richer `pane history` filters and summaries
+- richer generic `pane state` workflows beyond first-pass key/value JSON
 
 ## Product interpretation to preserve
 
@@ -277,36 +277,52 @@ Still needed:
 
 ### Phase 8 — sequential continuity
 
-Status: next strategic phase.
+Status: first pass implemented.
 
 Goal:
 
 Replace manual handoffs with accumulated session lineage.
 
-Tasks:
+Completed:
 
-1. session lineage model
-2. `pane continue <session-id>`
-3. summary from previous sessions
-4. decisions/open threads/history in summary
-5. `pane history --since ...`
+1. Added parent-session lineage to the session model.
+2. Added `pane continue <session-id>` to link the current pane/session to a previous session.
+3. Added continuity context to `pane summary`, including continued-from and recent workspace history.
+4. Added `pane history [--since <duration>]` for recent workspace session history.
+
+Still needed:
+
+- accumulate structured decisions/open threads beyond intents/messages
+- improve history filtering and output shape after dogfooding
+- handle long lineage chains, not only immediate parent + recent history
 
 ### Phase 9 — generic agent state
 
-Status: future.
+Status: first pass implemented.
 
 Goal:
 
 One local persistence API for specialized agents.
 
-Potential commands:
+Completed:
+
+1. Added workspace-scoped `agent_state` SQLite storage.
+2. Added daemon-backed state handlers.
+3. Added JSON-valued CLI commands:
 
 ```bash
 pane state set <namespace.key> <json>
 pane state get <namespace.key>
-pane state list <namespace-prefix>
+pane state list [namespace-prefix]
 pane state delete <namespace.key>
 ```
+
+Still needed:
+
+- decide conventions for namespaces and ownership
+- decide whether state should be workspace-only, global, or both
+- add richer query/output formats if dogfooding needs them
+- surface selected state in summaries when useful
 
 ## Testing plan
 

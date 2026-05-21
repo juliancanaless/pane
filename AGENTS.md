@@ -14,6 +14,13 @@ At the beginning of work, run:
 ./bin/pane board
 ```
 
+If you are taking over from a known prior session, link the handoff before proceeding:
+
+```bash
+./bin/pane continue <session-id>
+./bin/pane summary
+```
+
 If `./bin/pane` does not exist, run:
 
 ```bash
@@ -41,6 +48,7 @@ Check shared state before acting in an area another session may be touching:
 ```bash
 ./bin/pane board
 ./bin/pane summary
+./bin/pane history --since 24h
 ```
 
 ## Messaging
@@ -51,6 +59,17 @@ Ask other sessions directly instead of routing through the human:
 ./bin/pane ask <session-id> "question"
 ./bin/pane inbox
 ./bin/pane reply <message-id> "answer"
+```
+
+## Persistent state
+
+Use namespaced JSON state for compact facts that should survive the current chat/session but do not belong in source files:
+
+```bash
+./bin/pane state set agent.notes '{"handoff":"tests need review"}'
+./bin/pane state get agent.notes
+./bin/pane state list agent.
+./bin/pane state delete agent.notes
 ```
 
 ## Git
@@ -69,5 +88,7 @@ If shell shims are installed and `git` already routes through Pane, normal `git`
 - Keep `pane intent` current.
 - Treat `pane board` as the shared awareness board.
 - Treat `pane summary` as startup/resume context.
+- Use `pane continue <session-id>` when inheriting work from a previous session.
+- Use `pane state` for small namespaced JSON facts that should persist locally.
 - Use `pane ask` / `pane reply` for coordination.
 - Do not assume the human knows what other panes are doing.

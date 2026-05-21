@@ -24,6 +24,7 @@ func Render(value StartupSummary, now time.Time) string {
 	}
 
 	renderCoordination(&out, value.Coordination, now)
+	renderLineage(&out, value.Lineage, now)
 
 	fmt.Fprintf(&out, "\nOther sessions: %d\n", len(value.Peers))
 	if len(value.Peers) == 0 {
@@ -43,6 +44,26 @@ func Render(value StartupSummary, now time.Time) string {
 	}
 
 	return out.String()
+}
+
+func renderLineage(out *strings.Builder, lineage Lineage, now time.Time) {
+	if lineage.Parent == nil && len(lineage.History) == 0 {
+		return
+	}
+	fmt.Fprintf(out, "\nContinuity:\n")
+	if lineage.Parent != nil {
+		fmt.Fprintf(out, "  Continued from: %s (%s) — %s\n", lineage.Parent.SessionID, relativeTime(lineage.Parent.LastSeenAt, now), displayIntent(lineage.Parent.LastIntent))
+	}
+	if len(lineage.History) > 0 {
+		fmt.Fprintf(out, "  Recent workspace history:\n")
+		for _, item := range lineage.History {
+			fmt.Fprintf(out, "  - %s (%s", item.SessionID, relativeTime(item.LastSeenAt, now))
+			if item.Branch != "" {
+				fmt.Fprintf(out, ", %s", item.Branch)
+			}
+			fmt.Fprintf(out, "): %s\n", displayIntent(item.LastIntent))
+		}
+	}
 }
 
 func renderCoordination(out *strings.Builder, coordination Coordination, now time.Time) {

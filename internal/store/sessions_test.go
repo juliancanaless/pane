@@ -8,6 +8,31 @@ import (
 	"github.com/juliancanalez/pane/internal/session"
 )
 
+func TestSessionStorePersistsParentSession(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	store := NewSessionStore(db)
+	ctx := context.Background()
+	if err := store.Save(ctx, session.Session{ID: "session-parent", PaneID: "pane-1", WorkspaceRoot: "/workspace", CWD: "/workspace", Branch: "main", StartedAt: 1, LastSeenAt: 1, Status: session.StatusActive}); err != nil {
+		t.Fatalf("Save parent returned error: %v", err)
+	}
+	if err := store.Save(ctx, session.Session{ID: "session-child", PaneID: "pane-2", WorkspaceRoot: "/workspace", CWD: "/workspace", Branch: "main", StartedAt: 2, LastSeenAt: 2, Status: session.StatusActive, ParentID: "session-parent"}); err != nil {
+		t.Fatalf("Save child returned error: %v", err)
+	}
+
+	got, err := store.FindByID(ctx, "session-child")
+	if err != nil {
+		t.Fatalf("FindByID returned error: %v", err)
+	}
+	if got.ParentID != "session-parent" {
+		t.Fatalf("ParentID = %q", got.ParentID)
+	}
+}
+
 func TestListActiveByWorkspace(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

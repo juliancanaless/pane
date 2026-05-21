@@ -4,7 +4,9 @@
 
 Pane is a local coordination layer for multi-agent development workflows. It runs entirely on the developer's machine, requires no network access, and works with any AI coding agent that executes shell commands.
 
-V1 scope is deliberately narrow. Pane does six things:
+V1 scope is deliberately narrow. Its technical features exist to support the product use cases documented in [`../USE_CASES.md`](../USE_CASES.md): agent restart continuity, cross-pane handoff, concurrent agent awareness, human handoff relief, workspace memory, safer high-risk operations, specialized agent memory, and provider-agnostic collaboration.
+
+Pane does six things:
 
 1. Track sessions by terminal pane, not by agent process
 2. Maintain a shared awareness board for active sessions in a workspace

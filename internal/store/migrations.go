@@ -1,10 +1,20 @@
 package store
 
-import "database/sql"
+import (
+	"database/sql"
+	"strings"
+)
 
 func Migrate(db *sql.DB) error {
-	_, err := db.Exec(schema)
-	return err
+	if _, err := db.Exec(schema); err != nil {
+		return err
+	}
+	for _, statement := range additiveMigrations {
+		if _, err := db.Exec(statement); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+			return err
+		}
+	}
+	return nil
 }
 
 const schema = `
@@ -18,10 +28,13 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_intent    TEXT,
     started_at     INTEGER NOT NULL,
     last_seen_at   INTEGER NOT NULL,
-    status         TEXT NOT NULL DEFAULT 'active'
+    status         TEXT NOT NULL DEFAULT 'active',
+    parent_session_id TEXT REFERENCES sessions(session_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_lookup ON sessions(pane_id, workspace_root, status);
+CREATE INDEX IF NOT EXISTS idx_sessions_workspace_seen ON sessions(workspace_root, last_seen_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id);
 
 CREATE TABLE IF NOT EXISTS file_activity (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,4 +75,19 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_to ON messages(to_session, state);
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(thread_id, created_at);
+
+CREATE TABLE IF NOT EXISTS agent_state (
+    workspace_root TEXT NOT NULL,
+    key            TEXT NOT NULL,
+    value_json     TEXT NOT NULL,
+    updated_at     INTEGER NOT NULL,
+    session_id     TEXT REFERENCES sessions(session_id),
+    PRIMARY KEY (workspace_root, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_state_workspace_key ON agent_state(workspace_root, key);
 `
+
+var additiveMigrations = []string{
+	`ALTER TABLE sessions ADD COLUMN parent_session_id TEXT REFERENCES sessions(session_id)`,
+}

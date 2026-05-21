@@ -10,6 +10,8 @@ const (
 	RequestSessionClose     RequestType = "SessionClose"
 	RequestSessionStatus    RequestType = "SessionStatus"
 	RequestSessionIntent    RequestType = "SessionIntent"
+	RequestSessionContinue  RequestType = "SessionContinue"
+	RequestSessionHistory   RequestType = "SessionHistory"
 	RequestGitPreflight     RequestType = "GitPreflight"
 	RequestGitRecord        RequestType = "GitRecord"
 	RequestGetBoard         RequestType = "GetBoard"
@@ -17,6 +19,10 @@ const (
 	RequestMessageSend      RequestType = "MessageSend"
 	RequestMessageList      RequestType = "MessageList"
 	RequestMessageReply     RequestType = "MessageReply"
+	RequestStateSet         RequestType = "StateSet"
+	RequestStateGet         RequestType = "StateGet"
+	RequestStateList        RequestType = "StateList"
+	RequestStateDelete      RequestType = "StateDelete"
 )
 
 type Request struct {

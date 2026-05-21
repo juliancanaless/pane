@@ -35,6 +35,7 @@ type Daemon struct {
 	messageStore  store.MessageStore
 	activityStore store.FileActivityStore
 	gitEventStore store.GitEventStore
+	stateStore    store.AgentStateStore
 	watchers      map[string]context.CancelFunc
 	watchersMu    sync.Mutex
 }
@@ -61,6 +62,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.messageStore = store.NewMessageStore(db)
 		d.activityStore = store.NewFileActivityStore(db)
 		d.gitEventStore = store.NewGitEventStore(db)
+		d.stateStore = store.NewAgentStateStore(db)
 		defer db.Close()
 	}
 	if err := os.RemoveAll(d.config.SocketPath); err != nil {
@@ -135,6 +137,10 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleSessionStatus(request)
 	case protocol.RequestSessionIntent:
 		return d.handleSessionIntent(request)
+	case protocol.RequestSessionContinue:
+		return d.handleSessionContinue(request)
+	case protocol.RequestSessionHistory:
+		return d.handleSessionHistory(request)
 	case protocol.RequestGetBoard:
 		return d.handleGetBoard(request)
 	case protocol.RequestGetSummary:
@@ -149,6 +155,14 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleGitPreflight(request)
 	case protocol.RequestGitRecord:
 		return d.handleGitRecord(request)
+	case protocol.RequestStateSet:
+		return d.handleStateSet(request)
+	case protocol.RequestStateGet:
+		return d.handleStateGet(request)
+	case protocol.RequestStateList:
+		return d.handleStateList(request)
+	case protocol.RequestStateDelete:
+		return d.handleStateDelete(request)
 	default:
 		return protocol.Failure(fmt.Sprintf("unsupported request type %q", request.Type))
 	}
@@ -181,6 +195,40 @@ func (d *Daemon) handleSessionStatus(request protocol.Request) protocol.Response
 		return protocol.Failure(err.Error())
 	}
 	return protocol.Success(sessionPayload(current))
+}
+
+func (d *Daemon) handleSessionContinue(request protocol.Request) protocol.Response {
+	input := session.InitInput{
+		PaneID:        payloadString(request, "pane_id"),
+		TTY:           payloadString(request, "tty"),
+		WorkspaceRoot: payloadString(request, "workspace_root"),
+		CWD:           payloadString(request, "cwd"),
+		Branch:        payloadString(request, "branch"),
+	}
+	result, err := d.manager.Continue(context.Background(), input, payloadString(request, "parent_session_id"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("session to continue was not found")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	d.ensureWorkspaceWatcher(input.WorkspaceRoot)
+	payload := sessionPayload(result.Session)
+	payload["resumed"] = result.Resumed
+	return protocol.Success(payload)
+}
+
+func (d *Daemon) handleSessionHistory(request protocol.Request) protocol.Response {
+	workspaceRoot := payloadString(request, "workspace_root")
+	items, err := d.manager.ListRecent(context.Background(), workspaceRoot, 100)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	items = filterSince(items, payloadInt64(request, "since"))
+	if len(items) > 20 {
+		items = items[:20]
+	}
+	return protocol.Success(map[string]any{"text": renderHistory(workspaceRoot, items, time.Now())})
 }
 
 func (d *Daemon) handleSessionIntent(request protocol.Request) protocol.Response {
@@ -244,7 +292,8 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 		return protocol.Failure(err.Error())
 	}
 	coordination := summary.Coordination{UnreadMessages: unread, AwaitingReplies: awaiting}
-	text := summary.Render(summary.FromSessionsWithContext(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5)), time.Now())
+	lineage := d.summaryLineage(context.Background(), workspaceRoot, current)
+	text := summary.Render(summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5), lineage), time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
 
@@ -425,6 +474,76 @@ func (d *Daemon) handleMessageReply(request protocol.Request) protocol.Response 
 	return protocol.Success(map[string]any{"message_id": reply.ID, "thread_id": reply.ThreadID, "to_session": reply.ToSession})
 }
 
+func (d *Daemon) handleStateSet(request protocol.Request) protocol.Response {
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	key := payloadString(request, "key")
+	if key == "" {
+		return protocol.Failure("state key cannot be empty")
+	}
+	valueJSON := payloadString(request, "value_json")
+	if valueJSON == "" {
+		return protocol.Failure("state value cannot be empty")
+	}
+	item := store.AgentState{WorkspaceRoot: current.WorkspaceRoot, Key: key, ValueJSON: valueJSON, UpdatedAt: time.Now().Unix(), SessionID: current.ID}
+	if err := d.stateStore.Set(context.Background(), item); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"key": key})
+}
+
+func (d *Daemon) handleStateGet(request protocol.Request) protocol.Response {
+	workspaceRoot := payloadString(request, "workspace_root")
+	key := payloadString(request, "key")
+	if key == "" {
+		return protocol.Failure("state key cannot be empty")
+	}
+	item, err := d.stateStore.Get(context.Background(), workspaceRoot, key)
+	if errors.Is(err, store.ErrNotFound) {
+		return protocol.Failure("state key not found")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"key": item.Key, "value_json": item.ValueJSON, "updated_at": item.UpdatedAt, "session_id": item.SessionID})
+}
+
+func (d *Daemon) handleStateList(request protocol.Request) protocol.Response {
+	workspaceRoot := payloadString(request, "workspace_root")
+	items, err := d.stateStore.List(context.Background(), workspaceRoot, payloadString(request, "prefix"))
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"items": stateItemsPayload(items)})
+}
+
+func (d *Daemon) handleStateDelete(request protocol.Request) protocol.Response {
+	workspaceRoot := payloadString(request, "workspace_root")
+	key := payloadString(request, "key")
+	if key == "" {
+		return protocol.Failure("state key cannot be empty")
+	}
+	if err := d.stateStore.Delete(context.Background(), workspaceRoot, key); errors.Is(err, store.ErrNotFound) {
+		return protocol.Failure("state key not found")
+	} else if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"key": key})
+}
+
+func stateItemsPayload(items []store.AgentState) []map[string]any {
+	payload := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		payload = append(payload, map[string]any{"key": item.Key, "value_json": item.ValueJSON, "updated_at": item.UpdatedAt, "session_id": item.SessionID})
+	}
+	return payload
+}
+
 func (d *Daemon) handleGitPreflight(request protocol.Request) protocol.Response {
 	args := payloadStrings(request, "args")
 	intent := gitguard.Parse(args)
@@ -474,6 +593,97 @@ func (d *Daemon) handleGitRecord(request protocol.Request) protocol.Response {
 	return protocol.Success(nil)
 }
 
+func (d *Daemon) summaryLineage(ctx context.Context, workspaceRoot string, current session.Session) summary.Lineage {
+	items, err := d.manager.ListRecent(ctx, workspaceRoot, 5)
+	if err != nil {
+		return summary.Lineage{}
+	}
+	lineage := summary.Lineage{History: summary.HistoryFromSessions(filterSession(items, current.ID))}
+	if current.ParentID != "" {
+		for _, item := range items {
+			if item.ID == current.ParentID {
+				line := summary.HistoryFromSessions([]session.Session{item})[0]
+				lineage.Parent = &line
+				break
+			}
+		}
+	}
+	return lineage
+}
+
+func filterSession(items []session.Session, sessionID string) []session.Session {
+	filtered := make([]session.Session, 0, len(items))
+	for _, item := range items {
+		if item.ID != sessionID {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func filterSince(items []session.Session, since int64) []session.Session {
+	if since <= 0 {
+		return items
+	}
+	filtered := make([]session.Session, 0, len(items))
+	for _, item := range items {
+		if item.LastSeenAt >= since {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func renderHistory(workspaceRoot string, items []session.Session, now time.Time) string {
+	var out strings.Builder
+	fmt.Fprintf(&out, "[Pane] Session history\n")
+	fmt.Fprintf(&out, "Workspace: %s\n", workspaceRoot)
+	if len(items) == 0 {
+		fmt.Fprintf(&out, "No sessions recorded.\n")
+		return out.String()
+	}
+	for _, item := range items {
+		fmt.Fprintf(&out, "\n%s — %s", item.ID, item.Status)
+		if item.Branch != "" {
+			fmt.Fprintf(&out, " — %s", item.Branch)
+		}
+		if item.ParentID != "" {
+			fmt.Fprintf(&out, " — continued from %s", item.ParentID)
+		}
+		fmt.Fprintf(&out, "\n  Intent: %s\n", displayText(item.LastIntent, "not set"))
+		fmt.Fprintf(&out, "  CWD: %s\n", displayText(item.CWD, "unknown"))
+		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
+	}
+	return out.String()
+}
+
+func displayText(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+func relativeTime(timestamp int64, now time.Time) string {
+	if timestamp <= 0 {
+		return "unknown"
+	}
+	delta := now.Sub(time.Unix(timestamp, 0))
+	if delta < 0 {
+		delta = 0
+	}
+	if delta < time.Minute {
+		return fmt.Sprintf("%ds ago", int(delta.Seconds()))
+	}
+	if delta < time.Hour {
+		return fmt.Sprintf("%dm ago", int(delta.Minutes()))
+	}
+	if delta < 24*time.Hour {
+		return fmt.Sprintf("%dh ago", int(delta.Hours()))
+	}
+	return fmt.Sprintf("%dd ago", int(delta.Hours()/24))
+}
+
 func payloadStrings(request protocol.Request, key string) []string {
 	value, ok := request.Payload[key]
 	if !ok || value == nil {
@@ -493,6 +703,23 @@ func payloadStrings(request protocol.Request, key string) []string {
 	}
 }
 
+func payloadInt64(request protocol.Request, key string) int64 {
+	value, ok := request.Payload[key]
+	if !ok || value == nil {
+		return 0
+	}
+	switch typed := value.(type) {
+	case int64:
+		return typed
+	case int:
+		return int64(typed)
+	case float64:
+		return int64(typed)
+	default:
+		return 0
+	}
+}
+
 func payloadString(request protocol.Request, key string) string {
 	value, ok := request.Payload[key]
 	if !ok || value == nil {
@@ -507,15 +734,16 @@ func payloadString(request protocol.Request, key string) string {
 
 func sessionPayload(value session.Session) map[string]any {
 	return map[string]any{
-		"session_id":     value.ID,
-		"pane_id":        value.PaneID,
-		"tty":            value.TTY,
-		"workspace_root": value.WorkspaceRoot,
-		"cwd":            value.CWD,
-		"branch":         value.Branch,
-		"intent":         value.LastIntent,
-		"started_at":     value.StartedAt,
-		"last_seen_at":   value.LastSeenAt,
-		"status":         string(value.Status),
+		"session_id":        value.ID,
+		"pane_id":           value.PaneID,
+		"tty":               value.TTY,
+		"workspace_root":    value.WorkspaceRoot,
+		"cwd":               value.CWD,
+		"branch":            value.Branch,
+		"intent":            value.LastIntent,
+		"started_at":        value.StartedAt,
+		"last_seen_at":      value.LastSeenAt,
+		"status":            string(value.Status),
+		"parent_session_id": value.ParentID,
 	}
 }

@@ -14,7 +14,9 @@ type Store interface {
 	Save(context.Context, Session) error
 	FindResumable(context.Context, string, string, string, int64) (Session, error)
 	FindByPaneWorkspace(context.Context, string, string) (Session, error)
+	FindByID(context.Context, string) (Session, error)
 	ListActiveByWorkspace(context.Context, string) ([]Session, error)
+	ListRecentByWorkspace(context.Context, string, int) ([]Session, error)
 	UpdateIntent(context.Context, string, string, int64) error
 }
 
@@ -76,6 +78,50 @@ func (m Manager) Status(ctx context.Context, paneID, workspaceRoot string) (Sess
 
 func (m Manager) ListActive(ctx context.Context, workspaceRoot string) ([]Session, error) {
 	return m.store.ListActiveByWorkspace(ctx, workspaceRoot)
+}
+
+func (m Manager) ListRecent(ctx context.Context, workspaceRoot string, limit int) ([]Session, error) {
+	return m.store.ListRecentByWorkspace(ctx, workspaceRoot, limit)
+}
+
+func (m Manager) Continue(ctx context.Context, input InitInput, parentID string) (InitResult, error) {
+	parent, err := m.store.FindByID(ctx, parentID)
+	if err != nil {
+		return InitResult{}, err
+	}
+	if parent.WorkspaceRoot != input.WorkspaceRoot {
+		return InitResult{}, errors.New("cannot continue a session from a different workspace")
+	}
+
+	now := m.now().Unix()
+	current, err := m.store.FindByPaneWorkspace(ctx, input.PaneID, input.WorkspaceRoot)
+	if err == nil && current.ID != parent.ID {
+		current.TTY = input.TTY
+		current.CWD = input.CWD
+		current.Branch = input.Branch
+		current.LastSeenAt = now
+		current.Status = StatusActive
+		current.ParentID = parent.ID
+		return InitResult{Session: current, Resumed: true}, m.store.Save(ctx, current)
+	}
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return InitResult{}, err
+	}
+
+	created := Session{
+		ID:            newID(),
+		PaneID:        input.PaneID,
+		TTY:           input.TTY,
+		WorkspaceRoot: input.WorkspaceRoot,
+		CWD:           input.CWD,
+		Branch:        input.Branch,
+		LastIntent:    parent.LastIntent,
+		StartedAt:     now,
+		LastSeenAt:    now,
+		Status:        StatusActive,
+		ParentID:      parent.ID,
+	}
+	return InitResult{Session: created}, m.store.Save(ctx, created)
 }
 
 func (m Manager) SetIntent(ctx context.Context, sessionID, intent string) error {
