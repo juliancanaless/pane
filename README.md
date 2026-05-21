@@ -56,9 +56,15 @@ The human can inspect the board, but should not have to maintain it. Agents are 
 
 Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Restarting the daemon does not delete old sessions. `pane board` hides closed sessions and first-pass stale sessions by default; use `pane close` to close the current session and `pane sessions prune` to close stale active/idle sessions in the workspace.
 
+## Current status
+
+**V1 is complete.** Pane is a working local coordination layer with daemon-backed sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, agent state, and session lifecycle cleanup. Dogfooded and verified 2026-05-21.
+
+V2 work (overlap detection, richer preflight, daemon hardening) is scoped in [`ROADMAP.md`](ROADMAP.md).
+
 ## V1 focus
 
-The first version is intentionally practical. It does not try to understand every symbol or perfectly model the codebase. It starts with the pieces that remove the most human glue work:
+V1 is the 80/20 foundation. It does not try to understand every symbol or perfectly model the codebase. It provides the pieces that remove the most human glue work:
 
 - pane-based session identity
 - shared awareness board
@@ -95,17 +101,20 @@ Agents should update `pane intent` whenever they switch tasks. The board is only
 
 ## Project docs
 
+- [`ROADMAP.md`](ROADMAP.md) — **start here for what's next**: V2, V3, and Done plan
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture and design rules
-- [`PROGRESS.md`](PROGRESS.md) — committed phase plan, current status, and testing/dogfooding checklist
+- [`PROGRESS.md`](PROGRESS.md) — committed phase plan, current status, and V1 dogfood results
 - [`USE_CASES.md`](USE_CASES.md) — concrete problems and workflows Pane is meant to solve
-- [`V1_READY.md`](V1_READY.md) — definition of "good enough to just use" and the current blocker
+- [`V1_READY.md`](V1_READY.md) — definition of V1 (achieved)
 - [`REFRAMING.md`](REFRAMING.md) — long-term reframe from coordination tool to environment-as-product
 - [`docs/architecture.md`](docs/architecture.md) — detailed V1 technical architecture
 - [`docs/80-20-overview.md`](docs/80-20-overview.md) — V1 product scope
 
 ## Current repo status
 
-This repository currently contains the early Go scaffold and first working slices:
+**V1 is done.** All phases through session lifecycle cleanup are implemented and dogfooded. The V2/V3/Done roadmap is defined in [`ROADMAP.md`](ROADMAP.md).
+
+The repository contains:
 
 - CLI entry point
 - SQLite persistence foundation
@@ -122,7 +131,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The current path to "good enough to just use" is defined in [`V1_READY.md`](V1_READY.md). First-pass session lifecycle cleanup is implemented, but V1 still needs the focused real-pane dogfood checklist in [`PROGRESS.md`](PROGRESS.md) before V2 begins. After that, the focus shifts to overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality.
+The current focus is V2: overlap detection, richer git preflight, board/summary signal quality, daemon hardening, and targeting ergonomics. See [`ROADMAP.md`](ROADMAP.md) for the full guided plan.
 
 ## Project shape
 

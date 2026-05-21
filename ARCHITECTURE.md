@@ -260,22 +260,22 @@ CLI detects current session
 13. Targeting ergonomics — first pass done
 14. Session lifecycle cleanup / board freshness — first pass done
 
-## V2/V3 direction from the reframe
+## V2/V3/Done direction
 
-The `REFRAMING.md` direction widens the lens without changing the V1 foundation.
+The full guided plan lives in `ROADMAP.md`. Summary:
 
-V2 starts sequential continuity:
+| Version | Theme | Key capability |
+|---------|-------|---------------|
+| **V1** ✅ | Reliable awareness | Sessions, board, messaging, git guardrails, file activity, agent state |
+| **V2** | Deep coordination | Overlap detection, richer preflight, daemon hardening, board/summary signal quality |
+| **V3** | Semantic intelligence | Rust analysis engine, tree-sitter parsing, dependency graphs, symbol-level overlap |
+| **Done** | Production infrastructure | Worker hierarchies, installer, work tracking, platform hardening |
 
-- session lineage via parent session links
-- `pane continue`
-- richer `pane summary` from history
-- `pane history` for work tracking
+V2 deepens the V1 surface with file-level overlap, richer git warnings, and daemon reliability.
 
-V3 starts generic agent memory:
+V3 introduces a Rust analysis engine for symbol-level dependency graphs and semantic diffing.
 
-- `pane state set/get/list/delete`
-- workspace-scoped namespaced JSON state
-- future integrations for specialized agents such as Neon/APM
+Done means Pane is infrastructure you forget about.
 
 ## Shell and agent integration
 

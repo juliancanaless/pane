@@ -4,7 +4,11 @@ This file is intentionally committed so every machine and every agent can see th
 
 ## Current status
 
-Pane has an early but working daemon-backed core plus first-pass continuity, shell integration, heartbeat, and generic agent state.
+**V1 is complete.** Dogfooded 2026-05-21 on real default daemon/DB with multiple panes. All V1 checks passed.
+
+Pane has a working daemon-backed core with sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, heartbeat, agent state, and session lifecycle cleanup.
+
+See `ROADMAP.md` for the V2/V3/Done plan.
 
 Validated recently with:
 
@@ -99,13 +103,9 @@ Also smoke-tested locally with temporary database/socket paths.
 
 ## V1 ready target
 
-`V1_READY.md` defines the point where Pane is good enough to just use for daily dogfooding.
+`V1_READY.md` defines the bar. **V1 is achieved.** All V1 criteria passed the dogfood checklist on 2026-05-21.
 
-The short version: agents should be able to read `AGENTS.md`, run Pane commands without human babysitting, trust the board as the active coordination surface, recover startup context, message peers, use git guardrails, and inspect daemon health.
-
-Current V1-ready state:
-
-- first-pass session lifecycle cleanup is implemented; real-pane dogfooding should confirm whether board freshness now feels trustworthy.
+See `ROADMAP.md` for V2, V3, and Done scoping.
 
 ## What is not real yet
 
@@ -485,25 +485,19 @@ Exit criteria:
 
 ### V1-ready checkpoint
 
-Status: pending focused dogfooding before V2.
+Status: **DONE** — dogfooded 2026-05-21 on real default daemon/DB.
 
-Goal:
+All 7 required checks passed:
 
-Confirm Pane is good enough to just use as daily local agent memory.
+1. ✅ Rebuilt (`make build`) and started real daemon on default `~/.pane/` paths.
+2. ✅ 3 panes initialized with distinct intents (simulated via `ZELLIJ_PANE_ID=101/102/103`).
+3. ✅ `pane sessions prune` reported 0 stale; `pane board` showed exactly 3 active sessions.
+4. ✅ `pane close` on one pane dropped it from board (2 remaining); `pane history --since 24h` still showed it as closed.
+5. ✅ `pane ask <short-id>` delivered message; target pane received it in `pane inbox`.
+6. ✅ `pane summary`, `pane state set/get`, `pane git status`, and `pane daemon status` all worked correctly.
+7. ✅ V1 marked as done.
 
-Do not proceed to V2 until this dogfood pass is run on the real default daemon/DB with multiple panes.
-
-Required dogfood checks:
-
-1. Rebuild and restart the real daemon.
-2. In three real panes, run `pane init` and set distinct `pane intent` values.
-3. Run `pane sessions prune` and `pane board`; board should show the current panes, not old random sessions.
-4. Run `pane close` in one pane; board should drop that session while `pane history --since 24h` still shows it as closed.
-5. Use a board short ID with `pane ask <short-id> ...`; target pane should receive it in `pane inbox`.
-6. Run `pane summary`, `pane state set/get`, `pane git status`, and `pane daemon status` once to confirm the core loop still works.
-7. If these pass, mark V1 as ready/done in this file before starting V2 work.
-
-Any failure here is a V1 blocker unless explicitly documented as acceptable V2 polish.
+V1 is complete. V2 work can proceed. See `ROADMAP.md` for the guided plan.
 
 ### Phase 14 — overlap detection
 

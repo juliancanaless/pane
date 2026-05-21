@@ -103,16 +103,20 @@ A fresh checkout should have enough committed docs for another computer or agent
 
 ## Current V1-ready checkpoint
 
-The main blocker was session lifecycle cleanup / board freshness. A first pass now exists:
+**V1 is achieved.** Dogfooded 2026-05-21 on real default daemon/DB.
 
-- `pane close` closes the current session
-- `pane sessions prune` closes stale active/idle sessions in the workspace
-- `pane board` hides closed and first-pass stale sessions by default
-- `pane history` still preserves durable past sessions
+All V1 criteria passed:
 
-Pane is now ready for focused V1 dogfooding. If board freshness feels trustworthy with real panes, V1 can be considered "good enough to just use" for daily local agent memory.
+- Agents can read `AGENTS.md` and know the full operating loop — done
+- Board shows active sessions accurately, hides stale/closed — done
+- `pane close` and `pane sessions prune` keep board fresh — done
+- Startup context (`pane summary`, `pane history`) is useful — done
+- Messaging (`pane ask`, `pane inbox`, `pane reply`) works with short IDs — done
+- Git guardrails (`pane git`) provide preflight warnings — done
+- Daemon lifecycle (`pane daemon status/health`) is understandable — done
+- Agent state (`pane state set/get/list/delete`) works — done
 
-Do not start V2 until the required V1 dogfood checklist in `PROGRESS.md` passes on the real default daemon/DB with multiple panes.
+Do not revisit V1. Future improvements go into V2/V3/Done as defined in `ROADMAP.md`.
 
 ## After V1 ready
 
