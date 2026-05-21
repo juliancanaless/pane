@@ -109,6 +109,7 @@ These are important but not implemented yet:
 - richer `pane history` filters and summaries
 - richer generic `pane state` workflows beyond first-pass key/value JSON
 - richer aliases/names beyond first-pass short session IDs
+- session lifecycle cleanup: stale sessions currently remain visible until better close/prune/expiry exists
 
 ## Product interpretation to preserve
 
@@ -438,9 +439,36 @@ Still needed:
 - richer aliases or human-friendly names if short IDs are still awkward
 - dogfood whether board stays readable with short-ID indicators
 
-### Phase 13 — overlap detection
+### Phase 13 — session lifecycle cleanup / board freshness
 
 Status: next recommended phase.
+
+Goal:
+
+Make the board reflect live work more accurately by retiring or hiding sessions that are no longer participating.
+
+Use case:
+
+A user may only have three panes open but see more sessions because Pane durably remembers prior pane identities. Daemon restarts do not delete sessions, and old sessions can remain active/idle without a clear close/prune/expiry path.
+
+Candidate tasks:
+
+1. Define active vs idle vs stale vs closed semantics.
+2. Add `pane close` for the current session.
+3. Add `pane sessions prune` or daemon-side stale-session expiry.
+4. Make board hide stale/closed sessions by default while preserving history.
+5. Show clearer age/lifecycle labels in board/summary/history.
+6. Document that daemon restart preserves SQLite state and does not clean sessions.
+
+Exit criteria:
+
+- board session count matches the user's intuitive active workspace more closely
+- old sessions remain available through history but do not clutter the active board
+- agents and humans understand when Pane creates, resumes, idles, closes, or prunes sessions
+
+### Phase 14 — overlap detection
+
+Status: future.
 
 Goal:
 

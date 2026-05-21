@@ -54,6 +54,8 @@ The core surface is the shared awareness board. A Pane-aware agent can ask:
 
 The human can inspect the board, but should not have to maintain it. Agents are expected to update their own state as they work.
 
+Current lifecycle caveat: Pane persists sessions in SQLite across daemon restarts. Restarting the daemon does not delete old sessions, and board freshness/stale-session cleanup is still an active development item.
+
 ## V1 focus
 
 The first version is intentionally practical. It does not try to understand every symbol or perfectly model the codebase. It starts with the pieces that remove the most human glue work:
@@ -118,7 +120,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The next major work is overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is session lifecycle cleanup/board freshness, overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 

@@ -41,6 +41,8 @@ Pane should let each agent see:
 
 The human should not have to act as the live coordination board.
 
+For this to feel trustworthy, Pane also needs board freshness: old sessions should not clutter the active view just because they are durably remembered. Stale-session close/prune/expiry is a known lifecycle problem to solve.
+
 ## 4. Human handoff relief
 
 The human often becomes the memory layer: summarizing prior work, warning agents about each other, and relaying messages.
