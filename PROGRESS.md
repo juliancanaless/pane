@@ -74,9 +74,6 @@ Also smoke-tested locally with temporary database/socket paths.
 These are important but not implemented yet:
 
 - file working-set overlap detection
-- `pane git` real passthrough
-- git preflight warnings
-- git event storage
 - shell integration / `pane shell-init`
 - daemon auto-start
 - PID/lock/log lifecycle
@@ -235,23 +232,31 @@ Still needed:
 
 ### Phase 6 — git guardrail
 
-Status: next; parser only so far.
+Status: complete first pass.
 
 Goal:
 
 `pane git ...` behaves like real git while adding shared-state preflight warnings for risky commands.
 
-Tasks:
+Completed:
 
-1. Real git passthrough preserving stdout/stderr/exit code.
+1. Real git passthrough preserving stdout/stderr and exit code.
 2. Daemon `GitPreflight` handler.
 3. Daemon `GitRecord` handler.
-4. Narrow command-specific warnings.
-5. Daemon-down behavior should warn and continue for git.
+4. Narrow first-pass branch/session warnings.
+5. Daemon-down behavior warns and continues for git.
+6. Git event storage.
+
+Still needed:
+
+- richer preflight checks based on file activity overlap
+- confirmation prompt instead of hard block for forceful operations
+- PATH shim generation
+- more complete target-branch parsing and remote/push semantics
 
 ### Phase 7 — shell/agent integration
 
-Status: not started.
+Status: next.
 
 Goal:
 

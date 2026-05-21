@@ -228,11 +228,34 @@ func runGit(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		return errors.New("usage: pane git <git-args...>")
 	}
-	intent := gitguard.Parse(args)
-	if intent.Watched {
-		_, _ = fmt.Fprintf(stderr, "[Pane] git preflight for %s: not implemented yet\n", intent.Subcommand)
+	env, envErr := session.DetectEnvironment()
+	if envErr == nil && gitguard.Parse(args).Watched {
+		response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestGitPreflight, Payload: protocol.GitRequestPayload(env, args)})
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "[Pane] daemon unavailable, running git without coordination: %v\n", err)
+		} else if !response.OK {
+			_, _ = fmt.Fprintf(stderr, "[Pane] git preflight failed, running git without coordination: %s\n", response.Error)
+		} else {
+			for _, warning := range response.Warnings {
+				_, _ = fmt.Fprintf(stderr, "[Pane] Warning: %s\n", warning)
+			}
+			if response.Block {
+				return errors.New("git command blocked by Pane preflight")
+			}
+		}
 	}
-	_, _ = fmt.Fprintf(stdout, "git passthrough: not implemented yet (%s)\n", strings.Join(args, " "))
+
+	code, err := runRealGit(args, stdout, stderr)
+	result := "ok"
+	if err != nil {
+		result = fmt.Sprintf("exit:%d", code)
+	}
+	if envErr == nil {
+		_, _ = sendDaemonRequest(protocol.Request{Type: protocol.RequestGitRecord, Payload: protocol.GitRecordPayload(env, args, result)})
+	}
+	if err != nil {
+		return commandExitError{code: code}
+	}
 	return nil
 }
 

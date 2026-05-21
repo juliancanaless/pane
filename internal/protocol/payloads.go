@@ -34,6 +34,14 @@ type MessageReplyPayload struct {
 	Body          string `json:"body"`
 }
 
+type GitPayload struct {
+	PaneID        string   `json:"pane_id"`
+	WorkspaceRoot string   `json:"workspace_root"`
+	Branch        string   `json:"branch"`
+	Args          []string `json:"args"`
+	Result        string   `json:"result,omitempty"`
+}
+
 func EnvironmentPayload(value session.Environment) map[string]any {
 	return map[string]any{
 		"pane_id":        value.PaneID,
@@ -72,4 +80,19 @@ func MessageReplyRequestPayload(value session.Environment, messageID, body strin
 		"message_id":     messageID,
 		"body":           body,
 	}
+}
+
+func GitRequestPayload(value session.Environment, args []string) map[string]any {
+	return map[string]any{
+		"pane_id":        value.PaneID,
+		"workspace_root": value.WorkspaceRoot,
+		"branch":         value.Branch,
+		"args":           args,
+	}
+}
+
+func GitRecordPayload(value session.Environment, args []string, result string) map[string]any {
+	payload := GitRequestPayload(value, args)
+	payload["result"] = result
+	return payload
 }

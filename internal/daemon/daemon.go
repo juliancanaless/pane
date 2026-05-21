@@ -14,6 +14,7 @@ import (
 
 	"github.com/juliancanalez/pane/internal/activity"
 	"github.com/juliancanalez/pane/internal/board"
+	"github.com/juliancanalez/pane/internal/gitguard"
 	"github.com/juliancanalez/pane/internal/messages"
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/session"
@@ -33,6 +34,7 @@ type Daemon struct {
 	manager       session.Manager
 	messageStore  store.MessageStore
 	activityStore store.FileActivityStore
+	gitEventStore store.GitEventStore
 	watchers      map[string]context.CancelFunc
 	watchersMu    sync.Mutex
 }
@@ -58,6 +60,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.manager = session.NewManager(store.NewSessionStore(db))
 		d.messageStore = store.NewMessageStore(db)
 		d.activityStore = store.NewFileActivityStore(db)
+		d.gitEventStore = store.NewGitEventStore(db)
 		defer db.Close()
 	}
 	if err := os.RemoveAll(d.config.SocketPath); err != nil {
@@ -142,6 +145,10 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleMessageList(request)
 	case protocol.RequestMessageReply:
 		return d.handleMessageReply(request)
+	case protocol.RequestGitPreflight:
+		return d.handleGitPreflight(request)
+	case protocol.RequestGitRecord:
+		return d.handleGitRecord(request)
 	default:
 		return protocol.Failure(fmt.Sprintf("unsupported request type %q", request.Type))
 	}
@@ -416,6 +423,74 @@ func (d *Daemon) handleMessageReply(request protocol.Request) protocol.Response 
 		return protocol.Failure(err.Error())
 	}
 	return protocol.Success(map[string]any{"message_id": reply.ID, "thread_id": reply.ThreadID, "to_session": reply.ToSession})
+}
+
+func (d *Daemon) handleGitPreflight(request protocol.Request) protocol.Response {
+	args := payloadStrings(request, "args")
+	intent := gitguard.Parse(args)
+	if !intent.Watched {
+		return protocol.Success(nil)
+	}
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Success(nil)
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	sessions, err := d.manager.ListActive(context.Background(), payloadString(request, "workspace_root"))
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	result := gitguard.Preflight(gitguard.PreflightInput{Intent: intent, CurrentSession: current, ActiveSessions: sessions})
+	return protocol.Response{OK: true, Warnings: result.Warnings, Block: result.Block}
+}
+
+func (d *Daemon) handleGitRecord(request protocol.Request) protocol.Response {
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Success(nil)
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	args := payloadStrings(request, "args")
+	intent := gitguard.Parse(args)
+	if len(args) == 0 {
+		return protocol.Success(nil)
+	}
+	event := store.GitEvent{
+		SessionID:    current.ID,
+		Command:      strings.Join(args, " "),
+		Subcommand:   intent.Subcommand,
+		Branch:       payloadString(request, "branch"),
+		TargetBranch: intent.TargetBranch,
+		Timestamp:    time.Now().Unix(),
+		Result:       payloadString(request, "result"),
+	}
+	if err := d.gitEventStore.Save(context.Background(), event); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(nil)
+}
+
+func payloadStrings(request protocol.Request, key string) []string {
+	value, ok := request.Payload[key]
+	if !ok || value == nil {
+		return nil
+	}
+	switch typed := value.(type) {
+	case []string:
+		return typed
+	case []any:
+		items := make([]string, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, fmt.Sprint(item))
+		}
+		return items
+	default:
+		return nil
+	}
 }
 
 func payloadString(request protocol.Request, key string) string {

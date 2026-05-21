@@ -193,13 +193,15 @@ Messages remove the human as the context router.
 
 V1 includes git as an early guardrail, not as the product center.
 
-`pane git` should eventually:
+`pane git` currently:
 
-1. parse watched git commands
-2. ask the daemon for preflight risk
-3. print concise warnings
-4. execute real git preserving stdout/stderr/exit behavior
-5. record the git event
+1. parses watched git commands
+2. asks the daemon for preflight risk
+3. prints concise first-pass warnings
+4. executes real git preserving stdout/stderr/exit behavior
+5. records the git event
+
+Future preflight should include file activity overlap and more nuanced branch/remote checks.
 
 ## Current command flow
 
@@ -241,8 +243,8 @@ CLI detects current session
 4. Daemon-backed messaging — done
 5. Surface message state in board/summary — done
 6. File activity and working sets — first pass done
-7. Git passthrough and preflight — next
-8. Shell/agent integration
+7. Git passthrough and preflight — first pass done
+8. Shell/agent integration — next
 
 ## V2/V3 direction from the reframe
 

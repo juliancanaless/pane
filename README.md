@@ -90,11 +90,12 @@ This repository currently contains the early Go scaffold and first working slice
 - daemon-backed `pane summary` with session-specific startup context, unread messages, and recent files
 - daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
 - first-pass daemon-observed file activity
+- first-pass `pane git` passthrough, preflight, and event recording
 - Unix socket daemon foundation
 - protocol codec and request types
 - initial tests
 
-The next major work is git passthrough/preflight behavior, while continuing to dogfood and tune file activity attribution. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is shell/agent integration, while continuing to dogfood and tune board, summary, messaging, file activity, and git guardrails. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 
