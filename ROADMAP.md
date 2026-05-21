@@ -2,6 +2,38 @@
 
 This is the guided plan from V1-done through project completion.
 
+## Product narrative — why each version matters
+
+The single thread through the entire roadmap: **each version removes a different kind of thinking the human shouldn't have to do.**
+
+### V1 ✅ — The human stops being the message bus
+
+Before V1, you are the shared memory. You copy-paste context between panes, you remember who's touching what, you tell agent 3 what agent 1 figured out. V1 replaces that with a board agents read and write themselves. The human can step back from relaying.
+
+**The value: agents know about each other without you telling them.**
+
+### V2 — The human stops being the collision detector
+
+V1 tells you *what* is happening. But you still have to look at the board and think "wait, those two are both in `auth/` — that's going to be a problem." V2 computes that for you. Overlap detection, file-level preflight warnings, hot directory tracking. The system does the spatial reasoning about who's near who.
+
+**The value: the system warns before damage, not after.** You stop scanning the board with anxiety and start trusting it to flag what matters.
+
+### V3 — The human stops being the code analyst
+
+V2 says "two sessions touched `auth.ts`." That's useful but crude — maybe they touched completely unrelated functions. V3 says "Session 1 changed `validateToken()` return type and Session 2 is calling it with the old signature." The Rust analysis engine gives Pane actual understanding of code structure: imports, symbols, dependency edges. Warnings become precise instead of proximity-based.
+
+**The value: relevance replaces proximity.** False positives drop dramatically. Agents get told exactly what changed and why it matters to them, not just that someone was nearby.
+
+### Done — The human stops being the system administrator
+
+V3 is powerful but you still `make build`, manage the daemon, debug socket conflicts, manually set up shell hooks. Done means `brew install pane && pane setup` and you never think about it again. Worker hierarchies, platform hardening, work tracking as a side effect. Pane becomes invisible infrastructure — like git itself, you forget it's a separate tool.
+
+**The value: Pane disappears into the environment.** It's not a tool in your workflow, it *is* your workflow.
+
+> **Relaying → Detecting → Analyzing → Administering.** By Done, the human's only job is deciding what to build.
+
+---
+
 V1 is the 80/20 foundation: sessions, board, messaging, git guardrails, file activity, shell integration, continuity, agent state, and daemon lifecycle. It was dogfooded and marked done on 2026-05-21.
 
 What remains is three scopes of increasing depth, each building on what exists.
