@@ -5,6 +5,13 @@ import "github.com/juliancanalez/pane/internal/session"
 type Board struct {
 	WorkspaceRoot string
 	Sessions      []Session
+	Overlaps      []OverlapInfo
+}
+
+type OverlapInfo struct {
+	SessionA    string
+	SessionB    string
+	SharedFiles []string
 }
 
 type Session struct {

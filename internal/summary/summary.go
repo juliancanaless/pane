@@ -12,6 +12,12 @@ type StartupSummary struct {
 	Coordination  Coordination
 	RecentFiles   []string
 	Lineage       Lineage
+	Overlaps      []OverlapInfo
+}
+
+type OverlapInfo struct {
+	PeerSessionID string
+	SharedFiles   []string
 }
 
 func HistoryFromSessions(sessions []session.Session) []SessionLine {

@@ -41,6 +41,29 @@ func TestRenderSummaryWithPeer(t *testing.T) {
 	}
 }
 
+func TestRenderSummaryWithOverlap(t *testing.T) {
+	value := StartupSummary{
+		WorkspaceRoot: "/workspace",
+		Current:       SessionLine{SessionID: "session-a", Status: session.StatusActive, Branch: "main", CWD: "/workspace/src", LastIntent: "refactoring auth", LastSeenAt: 100},
+		Peers:         []SessionLine{{SessionID: "session-b", Status: session.StatusActive, Branch: "main", CWD: "/workspace/tests", LastIntent: "writing auth tests", LastSeenAt: 70}},
+		Overlaps: []OverlapInfo{
+			{PeerSessionID: "session-b", SharedFiles: []string{"/workspace/src/auth.go", "/workspace/src/auth_test.go"}},
+		},
+	}
+
+	got := Render(value, time.Unix(130, 0))
+	for _, want := range []string{
+		"Overlap:",
+		"session-b shares:",
+		"src/auth.go",
+		"src/auth_test.go",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Render output missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestRenderSummaryWithoutPeers(t *testing.T) {
 	value := StartupSummary{WorkspaceRoot: "/workspace", Current: SessionLine{SessionID: "session-a", Status: session.StatusActive}}
 	got := Render(value, time.Unix(130, 0))

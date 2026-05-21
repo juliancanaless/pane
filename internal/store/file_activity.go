@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"sort"
 
 	"github.com/juliancanalez/pane/internal/activity"
 )
@@ -54,6 +55,54 @@ LIMIT ?
 	}
 	defer rows.Close()
 	return scanFileActivities(rows)
+}
+
+// OverlapByWorkspace returns file paths that were touched by more than one active session
+// in the given workspace within the time window. Returns a map of path -> list of session IDs.
+func (s FileActivityStore) OverlapByWorkspace(ctx context.Context, workspaceRoot string, since int64) (map[string][]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT fa.path, fa.session_id
+FROM file_activity fa
+JOIN sessions s ON s.session_id = fa.session_id
+WHERE s.workspace_root = ?
+  AND s.status IN ('active', 'idle')
+  AND fa.timestamp >= ?
+ORDER BY fa.path, fa.session_id
+`, workspaceRoot, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pathSessions := make(map[string]map[string]bool)
+	for rows.Next() {
+		var path, sessionID string
+		if err := rows.Scan(&path, &sessionID); err != nil {
+			return nil, err
+		}
+		if pathSessions[path] == nil {
+			pathSessions[path] = make(map[string]bool)
+		}
+		pathSessions[path][sessionID] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Filter to only paths with 2+ sessions
+	result := make(map[string][]string)
+	for path, sessions := range pathSessions {
+		if len(sessions) < 2 {
+			continue
+		}
+		ids := make([]string, 0, len(sessions))
+		for id := range sessions {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		result[path] = ids
+	}
+	return result, nil
 }
 
 type fileActivityRows interface {

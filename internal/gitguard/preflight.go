@@ -10,6 +10,12 @@ type PreflightInput struct {
 	Intent         Intent
 	CurrentSession session.Session
 	ActiveSessions []session.Session
+	FileOverlaps   []FileOverlap
+}
+
+type FileOverlap struct {
+	PeerSessionID string
+	SharedFiles   []string
 }
 
 type PreflightResult struct {
@@ -22,6 +28,7 @@ func Preflight(input PreflightInput) PreflightResult {
 		return PreflightResult{}
 	}
 	warnings := branchWarnings(input)
+	warnings = append(warnings, fileOverlapWarnings(input)...)
 	block := input.Intent.Forceful && sameBranchPeer(input)
 	if block {
 		warnings = append(warnings, "forceful git operation while another session is active on this branch")
@@ -53,4 +60,33 @@ func sameBranchPeer(input PreflightInput) bool {
 		}
 	}
 	return false
+}
+
+func fileOverlapWarnings(input PreflightInput) []string {
+	var warnings []string
+	for _, overlap := range input.FileOverlaps {
+		if len(overlap.SharedFiles) == 0 {
+			continue
+		}
+		fileList := overlap.SharedFiles
+		if len(fileList) > 3 {
+			fileList = fileList[:3]
+		}
+		warnings = append(warnings, fmt.Sprintf("session %s has recent activity in overlapping files: %s", overlap.PeerSessionID, joinFiles(fileList, len(overlap.SharedFiles))))
+	}
+	return warnings
+}
+
+func joinFiles(files []string, total int) string {
+	result := ""
+	for i, f := range files {
+		if i > 0 {
+			result += ", "
+		}
+		result += f
+	}
+	if total > len(files) {
+		result += fmt.Sprintf(" (+%d more)", total-len(files))
+	}
+	return result
 }

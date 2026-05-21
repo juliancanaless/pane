@@ -39,6 +39,24 @@ func Render(value Board, now time.Time) string {
 		}
 	}
 
+	if len(value.Overlaps) > 0 {
+		fmt.Fprintf(&out, "\nOverlap:\n")
+		for _, overlap := range value.Overlaps {
+			shortA := overlap.SessionA
+			shortB := overlap.SessionB
+			// Try to find short IDs from sessions
+			for _, s := range value.Sessions {
+				if s.ID == overlap.SessionA && s.ShortID != "" {
+					shortA = s.ShortID
+				}
+				if s.ID == overlap.SessionB && s.ShortID != "" {
+					shortB = s.ShortID
+				}
+			}
+			fmt.Fprintf(&out, "  ⚠️  %s ↔ %s: %s\n", shortA, shortB, strings.Join(displayPaths(value.WorkspaceRoot, overlap.SharedFiles), ", "))
+		}
+	}
+
 	return out.String()
 }
 

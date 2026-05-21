@@ -25,6 +25,7 @@ func Render(value StartupSummary, now time.Time) string {
 
 	renderCoordination(&out, value.Coordination, now)
 	renderLineage(&out, value.Lineage, now)
+	renderOverlaps(&out, value.Overlaps, value.WorkspaceRoot)
 
 	fmt.Fprintf(&out, "\nOther sessions: %d\n", len(value.Peers))
 	if len(value.Peers) == 0 {
@@ -63,6 +64,16 @@ func renderLineage(out *strings.Builder, lineage Lineage, now time.Time) {
 			}
 			fmt.Fprintf(out, "): %s\n", displayIntent(item.LastIntent))
 		}
+	}
+}
+
+func renderOverlaps(out *strings.Builder, overlaps []OverlapInfo, workspaceRoot string) {
+	if len(overlaps) == 0 {
+		return
+	}
+	fmt.Fprintf(out, "\nOverlap:\n")
+	for _, overlap := range overlaps {
+		fmt.Fprintf(out, "  ⚠️  %s shares: %s\n", overlap.PeerSessionID, strings.Join(displayPaths(workspaceRoot, overlap.SharedFiles), ", "))
 	}
 }
 

@@ -339,7 +339,9 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
-	text := board.Render(board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats), time.Now())
+	b := board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats)
+	b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
+	text := board.Render(b, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
 
@@ -370,7 +372,9 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	}
 	coordination := summary.Coordination{UnreadMessages: unread, AwaitingReplies: awaiting}
 	lineage := d.summaryLineage(context.Background(), workspaceRoot, current)
-	text := summary.Render(summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5), lineage), time.Now())
+	s := summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5), lineage)
+	s.Overlaps = d.summaryOverlaps(context.Background(), workspaceRoot, current.ID)
+	text := summary.Render(s, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
 
@@ -435,6 +439,66 @@ func attributeSession(sessions []session.Session, path string) (session.Session,
 func pathHasPrefix(path, prefix string) bool {
 	relative, err := filepath.Rel(prefix, path)
 	return err == nil && relative != ".." && !strings.HasPrefix(relative, "../")
+}
+
+func (d *Daemon) boardOverlaps(ctx context.Context, workspaceRoot string) []board.OverlapInfo {
+	if d.activityStore == (store.FileActivityStore{}) {
+		return nil
+	}
+	pathSessions, err := d.activityStore.OverlapByWorkspace(ctx, workspaceRoot, time.Now().Add(-15*time.Minute).Unix())
+	if err != nil || len(pathSessions) == 0 {
+		return nil
+	}
+	overlaps := activity.ComputeOverlap(pathSessions)
+	result := make([]board.OverlapInfo, 0, len(overlaps))
+	for _, o := range overlaps {
+		result = append(result, board.OverlapInfo{
+			SessionA:    o.SessionA,
+			SessionB:    o.SessionB,
+			SharedFiles: o.SharedFiles,
+		})
+	}
+	return result
+}
+
+func (d *Daemon) summaryOverlaps(ctx context.Context, workspaceRoot, currentSessionID string) []summary.OverlapInfo {
+	if d.activityStore == (store.FileActivityStore{}) {
+		return nil
+	}
+	pathSessions, err := d.activityStore.OverlapByWorkspace(ctx, workspaceRoot, time.Now().Add(-15*time.Minute).Unix())
+	if err != nil || len(pathSessions) == 0 {
+		return nil
+	}
+	overlaps := activity.ComputeOverlap(pathSessions)
+	var result []summary.OverlapInfo
+	for _, o := range overlaps {
+		if o.SessionA == currentSessionID {
+			result = append(result, summary.OverlapInfo{PeerSessionID: o.SessionB, SharedFiles: o.SharedFiles})
+		} else if o.SessionB == currentSessionID {
+			result = append(result, summary.OverlapInfo{PeerSessionID: o.SessionA, SharedFiles: o.SharedFiles})
+		}
+	}
+	return result
+}
+
+func (d *Daemon) gitPreflightOverlaps(ctx context.Context, workspaceRoot, currentSessionID string) []gitguard.FileOverlap {
+	if d.activityStore == (store.FileActivityStore{}) {
+		return nil
+	}
+	pathSessions, err := d.activityStore.OverlapByWorkspace(ctx, workspaceRoot, time.Now().Add(-15*time.Minute).Unix())
+	if err != nil || len(pathSessions) == 0 {
+		return nil
+	}
+	overlaps := activity.ComputeOverlap(pathSessions)
+	var result []gitguard.FileOverlap
+	for _, o := range overlaps {
+		if o.SessionA == currentSessionID {
+			result = append(result, gitguard.FileOverlap{PeerSessionID: o.SessionB, SharedFiles: o.SharedFiles})
+		} else if o.SessionB == currentSessionID {
+			result = append(result, gitguard.FileOverlap{PeerSessionID: o.SessionA, SharedFiles: o.SharedFiles})
+		}
+	}
+	return result
 }
 
 func (d *Daemon) boardActivityStats(ctx context.Context, sessions []session.Session) (map[string]board.ActivityStats, error) {
@@ -649,7 +713,12 @@ func (d *Daemon) handleGitPreflight(request protocol.Request) protocol.Response 
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
-	result := gitguard.Preflight(gitguard.PreflightInput{Intent: intent, CurrentSession: current, ActiveSessions: sessions})
+	result := gitguard.Preflight(gitguard.PreflightInput{
+		Intent:         intent,
+		CurrentSession: current,
+		ActiveSessions: sessions,
+		FileOverlaps:   d.gitPreflightOverlaps(context.Background(), current.WorkspaceRoot, current.ID),
+	})
 	return protocol.Response{OK: true, Warnings: result.Warnings, Block: result.Block}
 }
 
