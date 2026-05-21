@@ -103,11 +103,9 @@ Also smoke-tested locally with temporary database/socket paths.
 
 The short version: agents should be able to read `AGENTS.md`, run Pane commands without human babysitting, trust the board as the active coordination surface, recover startup context, message peers, use git guardrails, and inspect daemon health.
 
-Current blocker to V1 ready:
+Current V1-ready state:
 
-- session lifecycle cleanup / board freshness
-
-Right now Pane remembers sessions durably, but does not retire stale sessions cleanly. This can make the board show more sessions than the user currently has open.
+- first-pass session lifecycle cleanup is implemented; real-pane dogfooding should confirm whether board freshness now feels trustworthy.
 
 ## What is not real yet
 
@@ -121,7 +119,7 @@ These are important but not implemented yet:
 - richer `pane history` filters and summaries
 - richer generic `pane state` workflows beyond first-pass key/value JSON
 - richer aliases/names beyond first-pass short session IDs
-- session lifecycle cleanup: stale sessions currently remain visible until better close/prune/expiry exists
+- richer session lifecycle cleanup beyond first-pass close/prune/stale hiding
 
 ## Product interpretation to preserve
 
@@ -453,7 +451,7 @@ Still needed:
 
 ### Phase 13 — session lifecycle cleanup / board freshness
 
-Status: next recommended phase and current V1-ready blocker.
+Status: first pass implemented; needs real-pane dogfooding.
 
 Goal:
 
@@ -463,20 +461,43 @@ Use case:
 
 A user may only have three panes open but see more sessions because Pane durably remembers prior pane identities. Daemon restarts do not delete sessions, and old sessions can remain active/idle without a clear close/prune/expiry path.
 
-Candidate tasks:
+Completed:
 
-1. Define active vs idle vs stale vs closed semantics.
-2. Add `pane close` for the current session.
-3. Add `pane sessions prune` or daemon-side stale-session expiry.
-4. Make board hide stale/closed sessions by default while preserving history.
-5. Show clearer age/lifecycle labels in board/summary/history.
-6. Document that daemon restart preserves SQLite state and does not clean sessions.
+1. Defined first-pass stale semantics: active/idle sessions older than 30 minutes are hidden from default active views.
+2. Added `pane close` for explicitly closing the current session.
+3. Added `pane sessions prune` to close stale active/idle sessions in the current workspace.
+4. `pane board` now hides stale/closed sessions by default through the daemon's active-session query.
+5. `pane history` still shows durable past sessions.
+6. Documented that daemon restart preserves SQLite state and does not clean sessions.
+
+Still needed:
+
+- real-pane dogfood to confirm board count matches user expectations
+- decide whether 30 minutes is the right stale threshold
+- possibly add `pane board --all` or `pane sessions list` for explicit lifecycle inspection
+- clearer stale/closed labels in history output
 
 Exit criteria:
 
-- board session count matches the user's intuitive active workspace more closely
-- old sessions remain available through history but do not clutter the active board
-- agents and humans understand when Pane creates, resumes, idles, closes, or prunes sessions
+- board session count matches the user's intuitive active workspace more closely — first pass ready for dogfooding
+- old sessions remain available through history but do not clutter the active board — first pass done
+- agents and humans understand when Pane creates, resumes, idles, closes, or prunes sessions — docs first pass done
+
+### V1-ready checkpoint
+
+Status: ready for focused dogfooding after Phase 13.
+
+Goal:
+
+Confirm Pane is good enough to just use as daily local agent memory.
+
+Dogfood checks:
+
+1. Three real panes show three active board sessions after `pane heartbeat` / `pane close` / `pane sessions prune` cleanup.
+2. `pane history --since 24h` still shows older sessions for continuity.
+3. Agents can follow `AGENTS.md` without extra human explanation.
+4. Board, summary, ask/reply, continue, state, git, daemon status, and lifecycle cleanup all work together.
+5. Any remaining friction is V2 polish rather than a V1 blocker.
 
 ### Phase 14 — overlap detection
 

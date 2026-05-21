@@ -8,6 +8,7 @@ const (
 	RequestSessionInit      RequestType = "SessionInit"
 	RequestSessionHeartbeat RequestType = "SessionHeartbeat"
 	RequestSessionClose     RequestType = "SessionClose"
+	RequestSessionPrune     RequestType = "SessionPrune"
 	RequestSessionStatus    RequestType = "SessionStatus"
 	RequestSessionIntent    RequestType = "SessionIntent"
 	RequestSessionContinue  RequestType = "SessionContinue"

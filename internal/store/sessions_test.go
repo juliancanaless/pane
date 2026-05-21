@@ -33,6 +33,42 @@ func TestSessionStorePersistsParentSession(t *testing.T) {
 	}
 }
 
+func TestSessionStoreCloseStaleByWorkspace(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	store := NewSessionStore(db)
+	ctx := context.Background()
+	values := []session.Session{
+		{ID: "session-fresh", PaneID: "pane-1", WorkspaceRoot: "/workspace", CWD: "/workspace", Branch: "main", StartedAt: 1, LastSeenAt: 100, Status: session.StatusActive},
+		{ID: "session-stale", PaneID: "pane-2", WorkspaceRoot: "/workspace", CWD: "/workspace", Branch: "main", StartedAt: 1, LastSeenAt: 10, Status: session.StatusActive},
+		{ID: "session-other", PaneID: "pane-3", WorkspaceRoot: "/other", CWD: "/other", Branch: "main", StartedAt: 1, LastSeenAt: 10, Status: session.StatusActive},
+	}
+	for _, value := range values {
+		if err := store.Save(ctx, value); err != nil {
+			t.Fatalf("Save returned error: %v", err)
+		}
+	}
+
+	closed, err := store.CloseStaleByWorkspace(ctx, "/workspace", 50, 200)
+	if err != nil {
+		t.Fatalf("CloseStaleByWorkspace returned error: %v", err)
+	}
+	if closed != 1 {
+		t.Fatalf("closed = %d, want 1", closed)
+	}
+	stale, err := store.FindByID(ctx, "session-stale")
+	if err != nil {
+		t.Fatalf("FindByID returned error: %v", err)
+	}
+	if stale.Status != session.StatusClosed {
+		t.Fatalf("stale status = %q", stale.Status)
+	}
+}
+
 func TestListActiveByWorkspace(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

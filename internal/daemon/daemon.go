@@ -162,6 +162,10 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleSessionInit(request)
 	case protocol.RequestSessionHeartbeat:
 		return d.handleSessionHeartbeat(request)
+	case protocol.RequestSessionClose:
+		return d.handleSessionClose(request)
+	case protocol.RequestSessionPrune:
+		return d.handleSessionPrune(request)
 	case protocol.RequestSessionStatus:
 		return d.handleSessionStatus(request)
 	case protocol.RequestSessionIntent:
@@ -231,6 +235,25 @@ func (d *Daemon) handleSessionHeartbeat(request protocol.Request) protocol.Respo
 	payload := sessionPayload(result.Session)
 	payload["resumed"] = result.Resumed
 	return protocol.Success(payload)
+}
+
+func (d *Daemon) handleSessionClose(request protocol.Request) protocol.Response {
+	current, err := d.manager.Close(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(sessionPayload(current))
+}
+
+func (d *Daemon) handleSessionPrune(request protocol.Request) protocol.Response {
+	count, err := d.manager.PruneStale(context.Background(), payloadString(request, "workspace_root"))
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{"closed": count})
 }
 
 func (d *Daemon) handleSessionStatus(request protocol.Request) protocol.Response {

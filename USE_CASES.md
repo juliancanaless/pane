@@ -41,7 +41,7 @@ Pane should let each agent see:
 
 The human should not have to act as the live coordination board.
 
-For this to feel trustworthy, Pane also needs board freshness: old sessions should not clutter the active view just because they are durably remembered. Stale-session close/prune/expiry is a known lifecycle problem to solve.
+For this to feel trustworthy, Pane also needs board freshness: old sessions should not clutter the active view just because they are durably remembered. First-pass lifecycle cleanup uses `pane close`, `pane sessions prune`, and stale-session hiding so history remains durable while the active board stays useful.
 
 ## 4. Human handoff relief
 

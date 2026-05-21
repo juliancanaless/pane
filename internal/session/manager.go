@@ -11,6 +11,7 @@ import (
 )
 
 const ResumeWindow = 4 * time.Hour
+const StaleAfter = 30 * time.Minute
 
 type Store interface {
 	Save(context.Context, Session) error
@@ -20,6 +21,8 @@ type Store interface {
 	ListActiveByWorkspace(context.Context, string) ([]Session, error)
 	ListRecentByWorkspace(context.Context, string, int) ([]Session, error)
 	UpdateIntent(context.Context, string, string, int64) error
+	UpdateStatus(context.Context, string, Status, int64) error
+	CloseStaleByWorkspace(context.Context, string, int64, int64) (int64, error)
 }
 
 type Manager struct {
@@ -96,7 +99,11 @@ func (m Manager) Heartbeat(ctx context.Context, input InitInput) (InitResult, er
 }
 
 func (m Manager) ListActive(ctx context.Context, workspaceRoot string) ([]Session, error) {
-	return m.store.ListActiveByWorkspace(ctx, workspaceRoot)
+	items, err := m.store.ListActiveByWorkspace(ctx, workspaceRoot)
+	if err != nil {
+		return nil, err
+	}
+	return filterFresh(items, m.now().Add(-StaleAfter).Unix()), nil
 }
 
 func (m Manager) ListRecent(ctx context.Context, workspaceRoot string, limit int) ([]Session, error) {
@@ -146,6 +153,35 @@ func (m Manager) Continue(ctx context.Context, input InitInput, parentID string)
 
 func (m Manager) SetIntent(ctx context.Context, sessionID, intent string) error {
 	return m.store.UpdateIntent(ctx, sessionID, intent, m.now().Unix())
+}
+
+func (m Manager) Close(ctx context.Context, paneID, workspaceRoot string) (Session, error) {
+	current, err := m.store.FindByPaneWorkspace(ctx, paneID, workspaceRoot)
+	if err != nil {
+		return Session{}, err
+	}
+	now := m.now().Unix()
+	if err := m.store.UpdateStatus(ctx, current.ID, StatusClosed, now); err != nil {
+		return Session{}, err
+	}
+	current.Status = StatusClosed
+	current.LastSeenAt = now
+	return current, nil
+}
+
+func (m Manager) PruneStale(ctx context.Context, workspaceRoot string) (int64, error) {
+	now := m.now().Unix()
+	return m.store.CloseStaleByWorkspace(ctx, workspaceRoot, m.now().Add(-StaleAfter).Unix(), now)
+}
+
+func filterFresh(items []Session, seenAfter int64) []Session {
+	fresh := make([]Session, 0, len(items))
+	for _, item := range items {
+		if item.LastSeenAt >= seenAfter {
+			fresh = append(fresh, item)
+		}
+	}
+	return fresh
 }
 
 var ErrAmbiguous = errors.New("ambiguous session reference")

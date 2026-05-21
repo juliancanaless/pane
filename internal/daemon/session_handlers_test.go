@@ -86,6 +86,15 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	if !ok || !strings.Contains(summaryText, "[Pane] Session summary") || !strings.Contains(summaryText, "testing daemon-backed board") {
 		t.Fatalf("unexpected summary text: %#v", summaryResponse.Payload)
 	}
+
+	closeResponse := d.Handle(protocol.Request{Type: protocol.RequestSessionClose, Payload: env}, func() {})
+	if !closeResponse.OK || closeResponse.Payload["status"] != "closed" {
+		t.Fatalf("close failed: %#v", closeResponse)
+	}
+	boardAfterClose := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/workspace"}}, func() {})
+	if !boardAfterClose.OK || strings.Contains(boardAfterClose.Payload["text"].(string), sessionID) {
+		t.Fatalf("closed session should not appear on board: %#v", boardAfterClose)
+	}
 }
 
 func TestMessageHandlers(t *testing.T) {

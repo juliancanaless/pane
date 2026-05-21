@@ -137,7 +137,7 @@ Identity priority:
 2. `$TMUX_PANE`
 3. TTY fallback
 
-This lets a new agent in the same pane resume the previous pane context. Sessions are durable SQLite records and survive daemon restarts. Current lifecycle cleanup is intentionally incomplete: stale sessions may remain visible on the board until close/prune/expiry semantics are implemented.
+This lets a new agent in the same pane resume the previous pane context. Sessions are durable SQLite records and survive daemon restarts. The default active board hides closed sessions and first-pass stale sessions; `pane close` explicitly closes the current session and `pane sessions prune` closes stale active/idle sessions in the workspace.
 
 ### Board layer: `internal/board`
 
@@ -258,7 +258,7 @@ CLI detects current session
 11. Heartbeat hardening — first pass done
 12. Daemon lifecycle hardening — first pass done
 13. Targeting ergonomics — first pass done
-14. Session lifecycle cleanup / board freshness — next
+14. Session lifecycle cleanup / board freshness — first pass done
 
 ## V2/V3 direction from the reframe
 

@@ -101,13 +101,16 @@ A fresh checkout should have enough committed docs for another computer or agent
 - `PROGRESS.md` says what is done and what is next
 - `ARCHITECTURE.md` explains design rules and ownership
 
-## Current blocker to V1 ready
+## Current V1-ready checkpoint
 
-The main blocker is session lifecycle cleanup / board freshness.
+The main blocker was session lifecycle cleanup / board freshness. A first pass now exists:
 
-Right now Pane remembers sessions durably, but does not retire them cleanly. That means the board can show more sessions than the user currently has open.
+- `pane close` closes the current session
+- `pane sessions prune` closes stale active/idle sessions in the workspace
+- `pane board` hides closed and first-pass stale sessions by default
+- `pane history` still preserves durable past sessions
 
-Until that is fixed, Pane is usable for development and dogfooding, but not yet "good enough to just use" without caveats.
+Pane is now ready for focused V1 dogfooding. If board freshness feels trustworthy with real panes, V1 can be considered "good enough to just use" for daily local agent memory.
 
 ## After V1 ready
 

@@ -46,6 +46,9 @@ func (f *fakeStore) FindByID(_ context.Context, sessionID string) (Session, erro
 }
 
 func (f *fakeStore) ListActiveByWorkspace(context.Context, string) ([]Session, error) {
+	if f.recent != nil {
+		return f.recent, nil
+	}
 	return []Session{f.status}, nil
 }
 
@@ -58,6 +61,28 @@ func (f *fakeStore) ListRecentByWorkspace(context.Context, string, int) ([]Sessi
 
 func (f *fakeStore) UpdateIntent(context.Context, string, string, int64) error {
 	return nil
+}
+
+func (f *fakeStore) UpdateStatus(_ context.Context, sessionID string, status Status, seenAt int64) error {
+	if f.status.ID != "" && f.status.ID != sessionID {
+		return ErrNotFound
+	}
+	f.status.ID = sessionID
+	f.status.Status = status
+	f.status.LastSeenAt = seenAt
+	return nil
+}
+
+func (f *fakeStore) CloseStaleByWorkspace(_ context.Context, _ string, seenBefore int64, seenAt int64) (int64, error) {
+	var count int64
+	for i, item := range f.recent {
+		if item.Status != StatusClosed && item.LastSeenAt < seenBefore {
+			f.recent[i].Status = StatusClosed
+			f.recent[i].LastSeenAt = seenAt
+			count++
+		}
+	}
+	return count, nil
 }
 
 func TestManagerInitCreatesWhenNoResumableSession(t *testing.T) {
@@ -160,6 +185,34 @@ func TestManagerResolveReturnsAmbiguousForSharedPrefix(t *testing.T) {
 	_, err := manager.Resolve(context.Background(), "/repo", "abc")
 	if !errors.Is(err, ErrAmbiguous) {
 		t.Fatalf("Resolve error = %v", err)
+	}
+}
+
+func TestManagerListActiveFiltersStaleSessions(t *testing.T) {
+	store := &fakeStore{recent: []Session{{ID: "fresh", LastSeenAt: 990, Status: StatusActive}, {ID: "stale", LastSeenAt: 100, Status: StatusActive}}}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(2000, 0) }
+
+	items, err := manager.ListActive(context.Background(), "/repo")
+	if err != nil {
+		t.Fatalf("ListActive returned error: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "fresh" {
+		t.Fatalf("items = %#v", items)
+	}
+}
+
+func TestManagerCloseMarksCurrentSessionClosed(t *testing.T) {
+	store := &fakeStore{status: Session{ID: "session-current", WorkspaceRoot: "/repo", Status: StatusActive}}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	closed, err := manager.Close(context.Background(), "pane-1", "/repo")
+	if err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+	if closed.Status != StatusClosed || store.status.Status != StatusClosed {
+		t.Fatalf("session was not closed: result=%#v store=%#v", closed, store.status)
 	}
 }
 

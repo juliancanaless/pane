@@ -54,7 +54,7 @@ The core surface is the shared awareness board. A Pane-aware agent can ask:
 
 The human can inspect the board, but should not have to maintain it. Agents are expected to update their own state as they work.
 
-Current lifecycle caveat: Pane persists sessions in SQLite across daemon restarts. Restarting the daemon does not delete old sessions, and board freshness/stale-session cleanup is still an active development item.
+Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Restarting the daemon does not delete old sessions. `pane board` hides closed sessions and first-pass stale sessions by default; use `pane close` to close the current session and `pane sessions prune` to close stale active/idle sessions in the workspace.
 
 ## V1 focus
 
@@ -78,6 +78,7 @@ A Pane-aware agent should use Pane commands during its normal loop:
 pane init
 pane heartbeat
 pane board
+pane close
 pane summary
 pane history --since 24h
 pane continue <session-id>
@@ -121,7 +122,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The current path to "good enough to just use" is defined in [`V1_READY.md`](V1_READY.md). The immediate blocker is session lifecycle cleanup/board freshness; after that, the focus shifts to overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The current path to "good enough to just use" is defined in [`V1_READY.md`](V1_READY.md). First-pass session lifecycle cleanup is implemented and needs focused dogfooding; after that, the focus shifts to overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 

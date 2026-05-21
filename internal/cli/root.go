@@ -26,12 +26,14 @@ Usage:
 
   pane init                         Register or resume this terminal pane as a Pane session
   pane heartbeat                    Quietly refresh this pane session's cwd/branch/last-seen state
+  pane close                        Close this pane session so it leaves the active board
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
   pane board                        Show the workspace shared awareness board
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
   pane history [--since <duration>] Show recent sessions for this workspace
+  pane sessions prune              Close stale active/idle sessions in this workspace
 
   pane shell-init                   Print shell hook for daemon start + session heartbeat
   pane shims install                Install transparent git shim under ~/.pane/shims
@@ -72,6 +74,10 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runInit(args[1:], stdout)
 	case "heartbeat":
 		return runHeartbeat(args[1:], stdout)
+	case "close":
+		return runClose(args[1:], stdout)
+	case "sessions":
+		return runSessions(args[1:], stdout)
 	case "status":
 		return runStatus(args[1:], stdout)
 	case "board":
@@ -220,6 +226,44 @@ func runHeartbeat(args []string, stdout io.Writer) error {
 		return errors.New(response.Error)
 	}
 	_, _ = fmt.Fprintf(stdout, "heartbeat: %s\n", payloadString(response, "session_id"))
+	return nil
+}
+
+func runClose(args []string, stdout io.Writer) error {
+	if len(args) != 0 {
+		return errors.New("usage: pane close")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionClose, Payload: protocol.EnvironmentPayload(env)})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "session closed: %s\n", payloadString(response, "session_id"))
+	return nil
+}
+
+func runSessions(args []string, stdout io.Writer) error {
+	if len(args) != 1 || args[0] != "prune" {
+		return errors.New("usage: pane sessions prune")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionPrune, Payload: protocol.BoardRequestPayload(env)})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "stale sessions closed: %v\n", response.Payload["closed"])
 	return nil
 }
 

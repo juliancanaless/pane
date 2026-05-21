@@ -119,6 +119,14 @@ Before ending or handing off, use:
 ```bash
 ./bin/pane state set agent.handoff '{"summary":"what changed","next":"what to do next"}'
 ./bin/pane history --since 24h
+./bin/pane close
+```
+
+If the board appears to show stale sessions, run:
+
+```bash
+./bin/pane sessions prune
+./bin/pane board
 ```
 
 ## What to pay attention to
@@ -130,4 +138,5 @@ Before ending or handing off, use:
 - Use `pane state` for small namespaced JSON facts that should persist locally.
 - Use `pane ask` / `pane reply` for coordination.
 - Do not assume the human knows what other panes are doing.
-- Current caveat: stale sessions may appear on `pane board` until lifecycle cleanup is implemented. Use `pane history` for durable past context and treat board freshness as still improving.
+- Sessions persist across daemon restarts. `pane board` hides stale/closed sessions by default, while `pane history` keeps durable past context.
+- Use `pane close` before ending a pane's work when possible.

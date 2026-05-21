@@ -103,6 +103,39 @@ LIMIT ?
 	return scanSessions(rows)
 }
 
+func (s SessionStore) UpdateStatus(ctx context.Context, sessionID string, status session.Status, seenAt int64) error {
+	result, err := s.db.ExecContext(ctx, `
+UPDATE sessions
+SET status = ?, last_seen_at = ?
+WHERE session_id = ?
+`, string(status), seenAt, sessionID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return session.ErrNotFound
+	}
+	return nil
+}
+
+func (s SessionStore) CloseStaleByWorkspace(ctx context.Context, workspaceRoot string, seenBefore int64, seenAt int64) (int64, error) {
+	result, err := s.db.ExecContext(ctx, `
+UPDATE sessions
+SET status = 'closed', last_seen_at = ?
+WHERE workspace_root = ?
+  AND status IN ('active', 'idle')
+  AND last_seen_at < ?
+`, seenAt, workspaceRoot, seenBefore)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 func (s SessionStore) UpdateIntent(ctx context.Context, sessionID, intent string, seenAt int64) error {
 	result, err := s.db.ExecContext(ctx, `
 UPDATE sessions
