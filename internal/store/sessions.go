@@ -184,7 +184,7 @@ func (s SessionStore) FindByName(ctx context.Context, workspaceRoot, name string
 SELECT `+sessionColumns+`
 FROM sessions
 WHERE workspace_root = ?
-  AND name = ?
+  AND name = ? COLLATE NOCASE
   AND status IN ('active', 'idle')
 ORDER BY last_seen_at DESC
 LIMIT 1
