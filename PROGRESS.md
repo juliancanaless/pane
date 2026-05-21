@@ -530,6 +530,21 @@ Completed:
 2. Better git command parsing: checkout -b/switch -c branch creation detection, push remote/branch parsing.
 3. Command-specific risk warnings: rebase, merge, reset --hard, force push, checkout/switch.
 
+### Phase 16 — board and summary signal quality
+
+Status: complete (V2.3).
+
+Goal:
+
+Make board/summary output denser and more useful without becoming noisy.
+
+Completed:
+
+1. Hot directory derivation (directories with 2+ recently active files) per session.
+2. Recent git events section on board (last 5 workspace git operations).
+3. `pane board --all` flag to show all sessions including closed/stale.
+4. History output with status emojis, short IDs, and shortened parent references.
+
 ## Testing plan
 
 ### Automated baseline
