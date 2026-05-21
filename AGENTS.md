@@ -4,6 +4,8 @@ Pane is shared local memory for agent work in this workspace.
 
 If you are an agent operating in this repo, use Pane as part of your normal loop. The human should not have to manually relay context between sessions.
 
+> **Cross-agent note:** This file is the canonical operating contract for ALL coding agents — Claude Code, Codex, Cursor, Copilot, Pi, Windsurf, Aider, or anything else. Provider-specific discovery files (CLAUDE.md, .cursorrules, etc.) exist in this repo solely to point back here. Pane works at the shell level; if you can run commands, you can participate.
+
 ## Operating contract
 
 Your job is to keep Pane state useful while you work:
