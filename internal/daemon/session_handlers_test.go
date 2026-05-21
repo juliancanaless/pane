@@ -18,6 +18,7 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	defer db.Close()
 
 	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
 	env := map[string]any{
 		"pane_id":        "tty:/dev/ttys001",
 		"tty":            "/dev/ttys001",
@@ -79,6 +80,7 @@ func TestMessageHandlers(t *testing.T) {
 	defer db.Close()
 
 	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
 	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
 	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
 	initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {})

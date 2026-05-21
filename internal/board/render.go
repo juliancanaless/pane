@@ -27,6 +27,9 @@ func Render(value Board, now time.Time) string {
 		fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(item.LastIntent))
 		fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, item.CWD))
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
+		if len(item.RecentFiles) > 0 {
+			fmt.Fprintf(&out, "  Recent files: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, item.RecentFiles), ", "))
+		}
 		if item.UnreadMessages > 0 || item.AwaitingReplies > 0 {
 			fmt.Fprintf(&out, "  Coordination: %s\n", coordinationSummary(item.UnreadMessages, item.AwaitingReplies))
 		}
@@ -51,6 +54,14 @@ func displayIntent(intent string) string {
 		return "not set"
 	}
 	return intent
+}
+
+func displayPaths(workspaceRoot string, paths []string) []string {
+	values := make([]string, 0, len(paths))
+	for _, path := range paths {
+		values = append(values, displayPath(workspaceRoot, path))
+	}
+	return values
 }
 
 func displayPath(workspaceRoot, path string) string {

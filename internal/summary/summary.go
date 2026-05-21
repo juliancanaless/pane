@@ -10,6 +10,7 @@ type StartupSummary struct {
 	Current       SessionLine
 	Peers         []SessionLine
 	Coordination  Coordination
+	RecentFiles   []string
 }
 
 type SessionLine struct {
@@ -31,6 +32,10 @@ func FromSessions(workspaceRoot string, current session.Session, sessions []sess
 }
 
 func FromSessionsWithCoordination(workspaceRoot string, current session.Session, sessions []session.Session, coordination Coordination) StartupSummary {
+	return FromSessionsWithContext(workspaceRoot, current, sessions, coordination, nil)
+}
+
+func FromSessionsWithContext(workspaceRoot string, current session.Session, sessions []session.Session, coordination Coordination, recentFiles []string) StartupSummary {
 	peers := make([]SessionLine, 0, len(sessions))
 	for _, value := range sessions {
 		line := fromSession(value)
@@ -39,7 +44,7 @@ func FromSessionsWithCoordination(workspaceRoot string, current session.Session,
 		}
 		peers = append(peers, line)
 	}
-	return StartupSummary{WorkspaceRoot: workspaceRoot, Current: fromSession(current), Peers: peers, Coordination: coordination}
+	return StartupSummary{WorkspaceRoot: workspaceRoot, Current: fromSession(current), Peers: peers, Coordination: coordination, RecentFiles: recentFiles}
 }
 
 func fromSession(value session.Session) SessionLine {

@@ -48,6 +48,7 @@ Also smoke-tested locally with temporary database/socket paths.
 - shows active/idle sessions in the workspace
 - includes session id, status, branch, cwd, intent, last seen
 - includes compact coordination indicators for unread messages and awaiting replies
+- includes recent files from daemon-observed activity
 - daemon-backed
 
 ### Summary
@@ -56,6 +57,7 @@ Also smoke-tested locally with temporary database/socket paths.
 - current-session startup/resume view
 - shows current session and peer sessions
 - surfaces unread messages and awaiting-reply counts for the current session
+- includes current session recent files
 - daemon-backed
 
 ### Messaging
@@ -71,8 +73,7 @@ Also smoke-tested locally with temporary database/socket paths.
 
 These are important but not implemented yet:
 
-- file activity watcher
-- file working-set / overlap detection
+- file working-set overlap detection
 - `pane git` real passthrough
 - git preflight warnings
 - git event storage
@@ -206,24 +207,35 @@ Remaining hardening:
 
 ### Phase 5 — file activity and working sets
 
-Status: next.
+Status: first pass implemented.
 
 Goal:
 
 The board reflects observed work, not just declared intent.
 
-Tasks:
+Completed:
 
-1. Implement file activity store.
-2. Choose watcher dependency and platform path.
-3. Filter `.git/`, ignored files, build artifacts.
-4. Attribute activity heuristically.
-5. Derive recent files, hot directories, and overlap.
-6. Show recent activity and overlap in board/summary.
+1. Implemented file activity store.
+2. Added a simple polling watcher started for registered workspaces.
+3. Filtered `.git/`, `.internal/`, build output, common dependency/build directories, and DB artifacts.
+4. Added heuristic attribution:
+   - single active session = high confidence
+   - cwd prefix match = medium confidence
+   - last seen fallback = low confidence
+5. Derived recent files per session.
+6. Show recent files in board and summary.
+
+Still needed:
+
+- replace or augment polling with platform-native watcher if needed
+- respect `.gitignore` and `.paneignore`
+- derive hot directories
+- derive overlap between sessions
+- tune attribution during dogfooding
 
 ### Phase 6 — git guardrail
 
-Status: parser only.
+Status: next; parser only so far.
 
 Goal:
 

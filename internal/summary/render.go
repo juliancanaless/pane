@@ -19,6 +19,9 @@ func Render(value StartupSummary, now time.Time) string {
 	fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(value.Current.LastIntent))
 	fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, value.Current.CWD))
 	fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(value.Current.LastSeenAt, now))
+	if len(value.RecentFiles) > 0 {
+		fmt.Fprintf(&out, "  Recent files: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, value.RecentFiles), ", "))
+	}
 
 	renderCoordination(&out, value.Coordination, now)
 
@@ -63,6 +66,14 @@ func displayIntent(intent string) string {
 		return "not set"
 	}
 	return intent
+}
+
+func displayPaths(workspaceRoot string, paths []string) []string {
+	values := make([]string, 0, len(paths))
+	for _, path := range paths {
+		values = append(values, displayPath(workspaceRoot, path))
+	}
+	return values
 }
 
 func displayPath(workspaceRoot, path string) string {

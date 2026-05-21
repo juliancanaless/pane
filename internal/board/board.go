@@ -16,6 +16,7 @@ type Session struct {
 	LastSeenAt      int64
 	UnreadMessages  int
 	AwaitingReplies int
+	RecentFiles     []string
 }
 
 func FromSessions(workspaceRoot string, sessions []session.Session) Board {
@@ -23,9 +24,14 @@ func FromSessions(workspaceRoot string, sessions []session.Session) Board {
 }
 
 func FromSessionsWithMessages(workspaceRoot string, sessions []session.Session, stats map[string]MessageStats) Board {
+	return FromSessionsWithStats(workspaceRoot, sessions, stats, nil)
+}
+
+func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, messageStats map[string]MessageStats, activityStats map[string]ActivityStats) Board {
 	items := make([]Session, 0, len(sessions))
 	for _, value := range sessions {
-		messageStats := stats[value.ID]
+		messages := messageStats[value.ID]
+		activity := activityStats[value.ID]
 		items = append(items, Session{
 			ID:              value.ID,
 			Status:          value.Status,
@@ -33,8 +39,9 @@ func FromSessionsWithMessages(workspaceRoot string, sessions []session.Session, 
 			CWD:             value.CWD,
 			LastIntent:      value.LastIntent,
 			LastSeenAt:      value.LastSeenAt,
-			UnreadMessages:  messageStats.UnreadMessages,
-			AwaitingReplies: messageStats.AwaitingReplies,
+			UnreadMessages:  messages.UnreadMessages,
+			AwaitingReplies: messages.AwaitingReplies,
+			RecentFiles:     activity.RecentFiles,
 		})
 	}
 	return Board{WorkspaceRoot: workspaceRoot, Sessions: items}
@@ -43,4 +50,8 @@ func FromSessionsWithMessages(workspaceRoot string, sessions []session.Session, 
 type MessageStats struct {
 	UnreadMessages  int
 	AwaitingReplies int
+}
+
+type ActivityStats struct {
+	RecentFiles []string
 }

@@ -87,13 +87,14 @@ This repository currently contains the early Go scaffold and first working slice
 - pane/TTY session identity
 - daemon-backed `pane init`, `pane status`, and `pane intent`
 - daemon-backed `pane board` with active session visibility and coordination indicators
-- daemon-backed `pane summary` with session-specific startup context and unread messages
+- daemon-backed `pane summary` with session-specific startup context, unread messages, and recent files
 - daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
+- first-pass daemon-observed file activity
 - Unix socket daemon foundation
 - protocol codec and request types
 - initial tests
 
-The next major work is file activity and working-set awareness, then git preflight behavior. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is git passthrough/preflight behavior, while continuing to dogfood and tune file activity attribution. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 

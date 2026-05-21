@@ -8,9 +8,11 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/juliancanalez/pane/internal/activity"
 	"github.com/juliancanalez/pane/internal/board"
 	"github.com/juliancanalez/pane/internal/messages"
 	"github.com/juliancanalez/pane/internal/protocol"
@@ -25,19 +27,22 @@ type Config struct {
 }
 
 type Daemon struct {
-	config       Config
-	started      time.Time
-	db           *sql.DB
-	manager      session.Manager
-	messageStore store.MessageStore
+	config        Config
+	started       time.Time
+	db            *sql.DB
+	manager       session.Manager
+	messageStore  store.MessageStore
+	activityStore store.FileActivityStore
+	watchers      map[string]context.CancelFunc
+	watchersMu    sync.Mutex
 }
 
 func New(config Config) *Daemon {
-	return &Daemon{config: config, started: time.Now()}
+	return &Daemon{config: config, started: time.Now(), watchers: make(map[string]context.CancelFunc)}
 }
 
 func NewForTest(config Config, manager session.Manager, messageStore store.MessageStore) *Daemon {
-	return &Daemon{config: config, started: time.Now(), manager: manager, messageStore: messageStore}
+	return &Daemon{config: config, started: time.Now(), manager: manager, messageStore: messageStore, watchers: make(map[string]context.CancelFunc)}
 }
 
 func (d *Daemon) Run(ctx context.Context) error {
@@ -52,6 +57,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.db = db
 		d.manager = session.NewManager(store.NewSessionStore(db))
 		d.messageStore = store.NewMessageStore(db)
+		d.activityStore = store.NewFileActivityStore(db)
 		defer db.Close()
 	}
 	if err := os.RemoveAll(d.config.SocketPath); err != nil {
@@ -153,6 +159,7 @@ func (d *Daemon) handleSessionInit(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
+	d.ensureWorkspaceWatcher(input.WorkspaceRoot)
 	payload := sessionPayload(result.Session)
 	payload["resumed"] = result.Resumed
 	return protocol.Success(payload)
@@ -196,7 +203,11 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
-	text := board.Render(board.FromSessionsWithMessages(workspaceRoot, sessions, stats), time.Now())
+	activityStats, err := d.boardActivityStats(context.Background(), sessions)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	text := board.Render(board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats), time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
 
@@ -221,9 +232,88 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
+	recentActivity, err := d.activityStore.RecentBySession(context.Background(), current.ID, time.Now().Add(-15*time.Minute).Unix(), 5)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
 	coordination := summary.Coordination{UnreadMessages: unread, AwaitingReplies: awaiting}
-	text := summary.Render(summary.FromSessionsWithCoordination(workspaceRoot, current, sessions, coordination), time.Now())
+	text := summary.Render(summary.FromSessionsWithContext(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5)), time.Now())
 	return protocol.Success(map[string]any{"text": text})
+}
+
+func (d *Daemon) ensureWorkspaceWatcher(workspaceRoot string) {
+	if workspaceRoot == "" || d.activityStore == (store.FileActivityStore{}) {
+		return
+	}
+	d.watchersMu.Lock()
+	defer d.watchersMu.Unlock()
+	if _, ok := d.watchers[workspaceRoot]; ok {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	d.watchers[workspaceRoot] = cancel
+	watcher := activity.PollWatcher{
+		Root: workspaceRoot,
+		OnEvent: func(event activity.WatchEvent) {
+			d.recordWatchEvent(workspaceRoot, event)
+		},
+	}
+	go func() { _ = watcher.Run(ctx) }()
+}
+
+func (d *Daemon) recordWatchEvent(workspaceRoot string, event activity.WatchEvent) {
+	sessions, err := d.manager.ListActive(context.Background(), workspaceRoot)
+	if err != nil || len(sessions) == 0 {
+		return
+	}
+	owner, attribution := attributeSession(sessions, event.Path)
+	_ = d.activityStore.Save(context.Background(), activity.FileActivity{
+		SessionID:   owner.ID,
+		Path:        event.Path,
+		EventType:   event.EventType,
+		Attribution: attribution,
+		Timestamp:   event.Time.Unix(),
+	})
+}
+
+func attributeSession(sessions []session.Session, path string) (session.Session, activity.Attribution) {
+	if len(sessions) == 1 {
+		return sessions[0], activity.AttributionHigh
+	}
+	best := sessions[0]
+	bestLen := -1
+	for _, item := range sessions {
+		if item.CWD != "" && pathHasPrefix(path, item.CWD) && len(item.CWD) > bestLen {
+			best = item
+			bestLen = len(item.CWD)
+		}
+	}
+	if bestLen >= 0 {
+		return best, activity.AttributionMedium
+	}
+	for _, item := range sessions[1:] {
+		if item.LastSeenAt > best.LastSeenAt {
+			best = item
+		}
+	}
+	return best, activity.AttributionLow
+}
+
+func pathHasPrefix(path, prefix string) bool {
+	relative, err := filepath.Rel(prefix, path)
+	return err == nil && relative != ".." && !strings.HasPrefix(relative, "../")
+}
+
+func (d *Daemon) boardActivityStats(ctx context.Context, sessions []session.Session) (map[string]board.ActivityStats, error) {
+	stats := make(map[string]board.ActivityStats, len(sessions))
+	for _, item := range sessions {
+		recent, err := d.activityStore.RecentBySession(ctx, item.ID, time.Now().Add(-15*time.Minute).Unix(), 5)
+		if err != nil {
+			return nil, err
+		}
+		stats[item.ID] = board.ActivityStats{RecentFiles: activity.RecentFiles(recent, 3)}
+	}
+	return stats, nil
 }
 
 func (d *Daemon) boardMessageStats(ctx context.Context, sessions []session.Session) (map[string]board.MessageStats, error) {

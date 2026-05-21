@@ -152,10 +152,10 @@ Current board data:
 - last seen
 - unread message count
 - awaiting reply count
+- recent files
 
 Future board data:
 
-- recent files
 - hot directories
 - overlaps
 - recent guardrail events
@@ -171,9 +171,9 @@ It is narrower than `pane board` and oriented around:
 - who else is nearby?
 - what context should I load before acting?
 
-Current summaries include current session, peer sessions, unread messages, and awaiting reply counts.
+Current summaries include current session, peer sessions, unread messages, awaiting reply counts, and recent files for the current session.
 
-Future summaries should include lineage, unresolved decisions, and relevant activity history.
+Future summaries should include lineage, unresolved decisions, hot directories, overlap, and richer activity history.
 
 ### Messages layer: `internal/messages`
 
@@ -240,8 +240,8 @@ CLI detects current session
 3. Daemon-backed summary — done
 4. Daemon-backed messaging — done
 5. Surface message state in board/summary — done
-6. File activity and working sets — next
-7. Git passthrough and preflight
+6. File activity and working sets — first pass done
+7. Git passthrough and preflight — next
 8. Shell/agent integration
 
 ## V2/V3 direction from the reframe
