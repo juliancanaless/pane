@@ -501,19 +501,34 @@ V1 is complete. V2 work can proceed. See `ROADMAP.md` for the guided plan.
 
 ### Phase 14 — overlap detection
 
-Status: future.
+Status: complete (V2.1).
 
 Goal:
 
 Surface when sessions are touching the same files/directories so agents can coordinate before conflicting work accumulates.
 
-Candidate tasks:
+Completed:
 
-1. Derive overlap from recent file activity by session.
-2. Add compact overlap indicators to board.
-3. Include current-session overlap in summary.
-4. Feed overlap into git preflight warnings for risky operations.
-5. Tune noise thresholds through dogfooding.
+1. Store query: OverlapByWorkspace returns files touched by 2+ active sessions.
+2. Activity computation: ComputeOverlap derives per-pair overlaps.
+3. Board overlap section with ⚠️ indicators using short IDs.
+4. Summary overlap section filtered to current session's peers.
+5. Git preflight file-level overlap warnings.
+6. Full test coverage across store, activity, board, summary, preflight, and daemon layers.
+
+### Phase 15 — richer git preflight
+
+Status: complete (V2.2).
+
+Goal:
+
+Make git guardrails more precise and less disruptive.
+
+Completed:
+
+1. Confirmation prompt instead of hard block for forceful operations.
+2. Better git command parsing: checkout -b/switch -c branch creation detection, push remote/branch parsing.
+3. Command-specific risk warnings: rebase, merge, reset --hard, force push, checkout/switch.
 
 ## Testing plan
 
