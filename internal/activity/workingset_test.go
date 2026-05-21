@@ -33,6 +33,20 @@ func TestComputeOverlap(t *testing.T) {
 	}
 }
 
+func TestHotDirectories(t *testing.T) {
+	files := []string{
+		"/workspace/src/auth/token.go",
+		"/workspace/src/auth/session.go",
+		"/workspace/src/auth/middleware.go",
+		"/workspace/src/payments/stripe.go",
+		"/workspace/tests/auth_test.go",
+	}
+	hot := HotDirectories(files, 3)
+	if len(hot) != 1 || hot[0] != "/workspace/src/auth" {
+		t.Fatalf("HotDirectories = %v, want [/workspace/src/auth]", hot)
+	}
+}
+
 func TestRecentFilesDeduplicates(t *testing.T) {
 	got := RecentFiles([]FileActivity{{Path: "a.go"}, {Path: "a.go"}, {Path: "b.go"}}, 2)
 	if len(got) != 2 || got[0] != "a.go" || got[1] != "b.go" {

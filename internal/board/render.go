@@ -34,6 +34,9 @@ func Render(value Board, now time.Time) string {
 		if len(item.RecentFiles) > 0 {
 			fmt.Fprintf(&out, "  Recent files: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, item.RecentFiles), ", "))
 		}
+		if len(item.HotDirectories) > 0 {
+			fmt.Fprintf(&out, "  Hot dirs: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, item.HotDirectories), ", "))
+		}
 		if item.UnreadMessages > 0 || item.AwaitingReplies > 0 {
 			fmt.Fprintf(&out, "  Coordination: %s\n", coordinationSummary(item.UnreadMessages, item.AwaitingReplies))
 		}
@@ -54,6 +57,13 @@ func Render(value Board, now time.Time) string {
 				}
 			}
 			fmt.Fprintf(&out, "  ⚠️  %s ↔ %s: %s\n", shortA, shortB, strings.Join(displayPaths(value.WorkspaceRoot, overlap.SharedFiles), ", "))
+		}
+	}
+
+	if len(value.RecentGitEvents) > 0 {
+		fmt.Fprintf(&out, "\nRecent git:\n")
+		for _, event := range value.RecentGitEvents {
+			fmt.Fprintf(&out, "  %s — %s (%s)\n", event.SessionShortID, event.Command, relativeTime(event.Timestamp, now))
 		}
 	}
 

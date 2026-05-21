@@ -1,6 +1,9 @@
 package activity
 
-import "sort"
+import (
+	"path/filepath"
+	"sort"
+)
 
 func RecentFiles(items []FileActivity, limit int) []string {
 	seen := make(map[string]bool)
@@ -61,4 +64,35 @@ func ComputeOverlap(pathSessions map[string][]string) []Overlap {
 		return overlaps[i].SessionA < overlaps[j].SessionA
 	})
 	return overlaps
+}
+
+// HotDirectories derives directories with 2+ recently active files.
+// Returns directory paths sorted by file count descending, limited to maxDirs.
+func HotDirectories(files []string, maxDirs int) []string {
+	dirCount := make(map[string]int)
+	for _, f := range files {
+		dir := filepath.Dir(f)
+		dirCount[dir]++
+	}
+	type dirEntry struct {
+		dir   string
+		count int
+	}
+	var entries []dirEntry
+	for dir, count := range dirCount {
+		if count >= 2 {
+			entries = append(entries, dirEntry{dir, count})
+		}
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].count > entries[j].count
+	})
+	result := make([]string, 0, maxDirs)
+	for _, e := range entries {
+		result = append(result, e.dir)
+		if len(result) == maxDirs {
+			break
+		}
+	}
+	return result
 }

@@ -3,9 +3,16 @@ package board
 import "github.com/juliancanalez/pane/internal/session"
 
 type Board struct {
-	WorkspaceRoot string
-	Sessions      []Session
-	Overlaps      []OverlapInfo
+	WorkspaceRoot   string
+	Sessions        []Session
+	Overlaps        []OverlapInfo
+	RecentGitEvents []GitEventInfo
+}
+
+type GitEventInfo struct {
+	SessionShortID string
+	Command        string
+	Timestamp      int64
 }
 
 type OverlapInfo struct {
@@ -25,6 +32,7 @@ type Session struct {
 	UnreadMessages  int
 	AwaitingReplies int
 	RecentFiles     []string
+	HotDirectories  []string
 }
 
 func FromSessions(workspaceRoot string, sessions []session.Session) Board {
@@ -51,6 +59,7 @@ func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, mes
 			UnreadMessages:  messages.UnreadMessages,
 			AwaitingReplies: messages.AwaitingReplies,
 			RecentFiles:     activity.RecentFiles,
+			HotDirectories:  activity.HotDirectories,
 		})
 	}
 	return Board{WorkspaceRoot: workspaceRoot, Sessions: items}
@@ -62,5 +71,6 @@ type MessageStats struct {
 }
 
 type ActivityStats struct {
-	RecentFiles []string
+	RecentFiles    []string
+	HotDirectories []string
 }

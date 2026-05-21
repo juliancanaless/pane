@@ -29,7 +29,7 @@ Usage:
   pane close                        Close this pane session so it leaves the active board
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
-  pane board                        Show the workspace shared awareness board
+  pane board [--all]                Show the workspace shared awareness board
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
   pane history [--since <duration>] Show recent sessions for this workspace
@@ -268,14 +268,24 @@ func runSessions(args []string, stdout io.Writer) error {
 }
 
 func runBoard(args []string, stdout io.Writer) error {
-	if len(args) != 0 {
-		return errors.New("usage: pane board")
+	showAll := false
+	for _, arg := range args {
+		if arg == "--all" || arg == "-a" {
+			showAll = true
+		} else {
+			return errors.New("usage: pane board [--all]")
+		}
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestGetBoard, Payload: protocol.BoardRequestPayload(env)})
+	reqType := protocol.RequestGetBoard
+	payload := protocol.BoardRequestPayload(env)
+	if showAll {
+		payload["show_all"] = true
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: reqType, Payload: payload})
 	if err != nil {
 		return err
 	}

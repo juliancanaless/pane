@@ -327,7 +327,13 @@ func (d *Daemon) handleSessionIntent(request protocol.Request) protocol.Response
 
 func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	workspaceRoot := payloadString(request, "workspace_root")
-	sessions, err := d.manager.ListActive(context.Background(), workspaceRoot)
+	var sessions []session.Session
+	var err error
+	if payloadBool(request, "show_all") {
+		sessions, err = d.manager.ListRecent(context.Background(), workspaceRoot, 50)
+	} else {
+		sessions, err = d.manager.ListActive(context.Background(), workspaceRoot)
+	}
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
@@ -341,6 +347,7 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	}
 	b := board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats)
 	b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
+	b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot)
 	text := board.Render(b, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
@@ -461,6 +468,25 @@ func (d *Daemon) boardOverlaps(ctx context.Context, workspaceRoot string) []boar
 	return result
 }
 
+func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string) []board.GitEventInfo {
+	if d.gitEventStore == (store.GitEventStore{}) {
+		return nil
+	}
+	events, err := d.gitEventStore.RecentByWorkspace(ctx, workspaceRoot, time.Now().Add(-15*time.Minute).Unix(), 5)
+	if err != nil || len(events) == 0 {
+		return nil
+	}
+	result := make([]board.GitEventInfo, 0, len(events))
+	for _, e := range events {
+		result = append(result, board.GitEventInfo{
+			SessionShortID: session.ShortID(e.SessionID),
+			Command:        e.Command,
+			Timestamp:      e.Timestamp,
+		})
+	}
+	return result
+}
+
 func (d *Daemon) summaryOverlaps(ctx context.Context, workspaceRoot, currentSessionID string) []summary.OverlapInfo {
 	if d.activityStore == (store.FileActivityStore{}) {
 		return nil
@@ -504,13 +530,24 @@ func (d *Daemon) gitPreflightOverlaps(ctx context.Context, workspaceRoot, curren
 func (d *Daemon) boardActivityStats(ctx context.Context, sessions []session.Session) (map[string]board.ActivityStats, error) {
 	stats := make(map[string]board.ActivityStats, len(sessions))
 	for _, item := range sessions {
-		recent, err := d.activityStore.RecentBySession(ctx, item.ID, time.Now().Add(-15*time.Minute).Unix(), 5)
+		recent, err := d.activityStore.RecentBySession(ctx, item.ID, time.Now().Add(-15*time.Minute).Unix(), 10)
 		if err != nil {
 			return nil, err
 		}
-		stats[item.ID] = board.ActivityStats{RecentFiles: activity.RecentFiles(recent, 3)}
+		files := activity.RecentFiles(recent, 5)
+		stats[item.ID] = board.ActivityStats{
+			RecentFiles:    files[:min(len(files), 3)],
+			HotDirectories: activity.HotDirectories(activity.RecentFiles(recent, 10), 3),
+		}
 	}
 	return stats, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (d *Daemon) boardMessageStats(ctx context.Context, sessions []session.Session) (map[string]board.MessageStats, error) {
@@ -800,18 +837,33 @@ func renderHistory(workspaceRoot string, items []session.Session, now time.Time)
 		return out.String()
 	}
 	for _, item := range items {
-		fmt.Fprintf(&out, "\n%s — %s", item.ID, item.Status)
+		shortID := session.ShortID(item.ID)
+		fmt.Fprintf(&out, "\n%s (short: %s)", item.ID, shortID)
+		fmt.Fprintf(&out, " — %s", statusLabel(item.Status))
 		if item.Branch != "" {
 			fmt.Fprintf(&out, " — %s", item.Branch)
 		}
 		if item.ParentID != "" {
-			fmt.Fprintf(&out, " — continued from %s", item.ParentID)
+			fmt.Fprintf(&out, " — continued from %s", session.ShortID(item.ParentID))
 		}
 		fmt.Fprintf(&out, "\n  Intent: %s\n", displayText(item.LastIntent, "not set"))
 		fmt.Fprintf(&out, "  CWD: %s\n", displayText(item.CWD, "unknown"))
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
 	}
 	return out.String()
+}
+
+func statusLabel(status session.Status) string {
+	switch status {
+	case session.StatusActive:
+		return "🟢 active"
+	case session.StatusIdle:
+		return "🟡 idle"
+	case session.StatusClosed:
+		return "⚫ closed"
+	default:
+		return string(status)
+	}
 }
 
 func displayText(value, fallback string) string {
@@ -887,6 +939,15 @@ func payloadString(request protocol.Request, key string) string {
 		return fmt.Sprint(value)
 	}
 	return text
+}
+
+func payloadBool(request protocol.Request, key string) bool {
+	value, ok := request.Payload[key]
+	if !ok || value == nil {
+		return false
+	}
+	b, ok := value.(bool)
+	return ok && b
 }
 
 func sessionPayload(value session.Session) map[string]any {

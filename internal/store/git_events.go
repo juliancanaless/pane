@@ -59,3 +59,29 @@ LIMIT ?
 	}
 	return items, nil
 }
+
+func (s GitEventStore) RecentByWorkspace(ctx context.Context, workspaceRoot string, since int64, limit int) ([]GitEvent, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT ge.id, ge.session_id, ge.command, ge.subcommand, ge.branch, ge.target_branch, ge.timestamp, ge.result
+FROM git_events ge
+JOIN sessions s ON s.session_id = ge.session_id
+WHERE s.workspace_root = ?
+  AND ge.timestamp >= ?
+ORDER BY ge.timestamp DESC, ge.id DESC
+LIMIT ?
+`, workspaceRoot, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []GitEvent
+	for rows.Next() {
+		var value GitEvent
+		if err := rows.Scan(&value.ID, &value.SessionID, &value.Command, &value.Subcommand, &value.Branch, &value.TargetBranch, &value.Timestamp, &value.Result); err != nil {
+			return nil, err
+		}
+		items = append(items, value)
+	}
+	return items, rows.Err()
+}

@@ -57,6 +57,30 @@ func TestRenderBoardWithOverlap(t *testing.T) {
 	}
 }
 
+func TestRenderBoardWithHotDirsAndGitEvents(t *testing.T) {
+	value := Board{
+		WorkspaceRoot: "/workspace",
+		Sessions: []Session{
+			{ID: "session-aaa", ShortID: "aaa", Status: session.StatusActive, Branch: "main", CWD: "/workspace", LastIntent: "auth work", LastSeenAt: 100,
+				HotDirectories: []string{"/workspace/src/auth"}},
+		},
+		RecentGitEvents: []GitEventInfo{
+			{SessionShortID: "aaa", Command: "commit -m 'wip'", Timestamp: 95},
+		},
+	}
+
+	got := Render(value, time.Unix(130, 0))
+	for _, want := range []string{
+		"Hot dirs: src/auth",
+		"Recent git:",
+		"aaa — commit -m 'wip'",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Render output missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestRenderEmptyBoard(t *testing.T) {
 	got := Render(Board{WorkspaceRoot: "/workspace"}, time.Unix(130, 0))
 	if !strings.Contains(got, "No active sessions found") {
