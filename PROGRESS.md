@@ -564,6 +564,27 @@ New files: `internal/daemon/lock.go`, `internal/daemon/logging.go`, `internal/da
 
 Smoke tested end-to-end: background start, dual-start race, kill -9 crash recovery, clean shutdown, self-logging.
 
+### Phase 18 — targeting and naming ergonomics
+
+Status: complete (V2.5).
+
+Goal:
+
+Make session targeting natural — names instead of opaque hex IDs.
+
+Completed:
+
+1. `pane name <name>` command — sets a human-friendly name for the current session.
+2. Name-based resolution in `pane ask` — exact name, name prefix, case-insensitive.
+3. Resolution priority: exact ID → exact name → short ID prefix → name prefix.
+4. Names shown throughout: board, summary, history, overlap warnings, git events.
+5. Additive migration adds `name` column to sessions table.
+6. UPSERT preserves existing name when session is re-saved without one (`COALESCE(excluded.name, sessions.name)`).
+
+Exit criteria met: `pane ask auth-refactor "are you done?"` works and reads naturally.
+
+Smoke tested end-to-end: naming, board/summary/history rendering, ask by name, ask by prefix, overlap with names.
+
 ## Testing plan
 
 ### Automated baseline
