@@ -112,6 +112,8 @@ The main blocker was session lifecycle cleanup / board freshness. A first pass n
 
 Pane is now ready for focused V1 dogfooding. If board freshness feels trustworthy with real panes, V1 can be considered "good enough to just use" for daily local agent memory.
 
+Do not start V2 until the required V1 dogfood checklist in `PROGRESS.md` passes on the real default daemon/DB with multiple panes.
+
 ## After V1 ready
 
 After this bar is met, Pane can shift from foundation-building to deeper quality work:

@@ -122,7 +122,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The current path to "good enough to just use" is defined in [`V1_READY.md`](V1_READY.md). First-pass session lifecycle cleanup is implemented and needs focused dogfooding; after that, the focus shifts to overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The current path to "good enough to just use" is defined in [`V1_READY.md`](V1_READY.md). First-pass session lifecycle cleanup is implemented, but V1 still needs the focused real-pane dogfood checklist in [`PROGRESS.md`](PROGRESS.md) before V2 begins. After that, the focus shifts to overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality.
 
 ## Project shape
 

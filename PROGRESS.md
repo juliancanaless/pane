@@ -485,19 +485,25 @@ Exit criteria:
 
 ### V1-ready checkpoint
 
-Status: ready for focused dogfooding after Phase 13.
+Status: pending focused dogfooding before V2.
 
 Goal:
 
 Confirm Pane is good enough to just use as daily local agent memory.
 
-Dogfood checks:
+Do not proceed to V2 until this dogfood pass is run on the real default daemon/DB with multiple panes.
 
-1. Three real panes show three active board sessions after `pane heartbeat` / `pane close` / `pane sessions prune` cleanup.
-2. `pane history --since 24h` still shows older sessions for continuity.
-3. Agents can follow `AGENTS.md` without extra human explanation.
-4. Board, summary, ask/reply, continue, state, git, daemon status, and lifecycle cleanup all work together.
-5. Any remaining friction is V2 polish rather than a V1 blocker.
+Required dogfood checks:
+
+1. Rebuild and restart the real daemon.
+2. In three real panes, run `pane init` and set distinct `pane intent` values.
+3. Run `pane sessions prune` and `pane board`; board should show the current panes, not old random sessions.
+4. Run `pane close` in one pane; board should drop that session while `pane history --since 24h` still shows it as closed.
+5. Use a board short ID with `pane ask <short-id> ...`; target pane should receive it in `pane inbox`.
+6. Run `pane summary`, `pane state set/get`, `pane git status`, and `pane daemon status` once to confirm the core loop still works.
+7. If these pass, mark V1 as ready/done in this file before starting V2 work.
+
+Any failure here is a V1 blocker unless explicitly documented as acceptable V2 polish.
 
 ### Phase 14 — overlap detection
 
