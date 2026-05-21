@@ -4,7 +4,7 @@ This file is intentionally committed so every machine and every agent can see th
 
 ## Current status
 
-Pane has an early but working daemon-backed core.
+Pane has an early but working daemon-backed core plus first-pass continuity, shell integration, heartbeat, and generic agent state.
 
 Validated recently with:
 
@@ -35,6 +35,7 @@ Also smoke-tested locally with temporary database/socket paths.
 ### Sessions
 
 - `pane init`
+- `pane heartbeat`
 - `pane status`
 - `pane intent <text>`
 - pane identity from Zellij/tmux/TTY
@@ -69,6 +70,30 @@ Also smoke-tested locally with temporary database/socket paths.
 - message threads via `thread_id`
 - daemon-backed
 
+### Continuity and history
+
+- `pane continue <session-id>`
+- `pane history [--since <duration>]`
+- parent-session lineage
+- continuity context in `pane summary`
+- daemon-backed
+
+### Generic agent state
+
+- `pane state set <namespace.key> <json>`
+- `pane state get <namespace.key>`
+- `pane state list [namespace-prefix]`
+- `pane state delete <namespace.key>`
+- workspace-scoped JSON state
+- daemon-backed
+
+### Shell/git integration
+
+- `pane shell-init`
+- prompt heartbeat through `pane heartbeat`
+- `pane shims install`
+- `pane git <args...>` real passthrough with first-pass preflight and event recording
+
 ## What is not real yet
 
 These are important but not implemented yet:
@@ -76,9 +101,11 @@ These are important but not implemented yet:
 - file working-set overlap detection
 - daemon auto-start outside shell hook
 - PID/lock/log lifecycle
+- platform-native file watcher
 - richer session lineage beyond first parent links
 - richer `pane history` filters and summaries
 - richer generic `pane state` workflows beyond first-pass key/value JSON
+- short aliases or better targeting for long session IDs
 
 ## Product interpretation to preserve
 
@@ -326,7 +353,7 @@ Still needed:
 
 ### Phase 10 — heartbeat hardening
 
-Status: first pass implemented.
+Status: first pass implemented and manually dogfooded.
 
 Goal:
 
@@ -339,11 +366,43 @@ Completed:
 3. Heartbeat creates/resumes a session if none exists for the pane/workspace, preserving shell-hook convenience.
 4. Updated `pane shell-init` to use `pane heartbeat` instead of quietly re-running `pane init` on every prompt.
 
+Manual validation:
+
+- `pane heartbeat` preserved intent while refreshing the session.
+- Real-pane continuity handoff passed after fixing intent inheritance.
+- `pane state` set/get/list/delete passed across panes in the same workspace.
+
 Still needed:
 
 - daemon PID/lock/log lifecycle hardening
 - auto-start behavior outside shell hook
 - decide whether long-running agent commands need activity signals beyond prompt heartbeat
+
+### Phase 11 — daemon lifecycle hardening
+
+Status: next recommended phase.
+
+Goal:
+
+Make the daemon feel like dependable local infrastructure instead of a foreground process the user has to babysit.
+
+Use case:
+
+Agents should be able to rely on Pane memory being available without the human remembering which terminal is running the daemon, whether an old socket is stale, or where logs went.
+
+Candidate tasks:
+
+1. PID file and stale-process detection.
+2. Locking so two daemons do not fight over the same DB/socket.
+3. Log file lifecycle and clearer `pane daemon status` output.
+4. Safer startup when a stale socket exists.
+5. Consider `pane daemon start --background` or CLI auto-start policy beyond shell hook.
+
+Exit criteria:
+
+- users can tell whether the daemon is running, where it is logging, and which DB/socket it owns
+- stale sockets/PIDs do not confuse normal startup
+- duplicate daemon starts fail clearly or become no-ops
 
 ## Testing plan
 

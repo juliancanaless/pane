@@ -34,6 +34,7 @@ Pane is meant to solve these workflows first:
 - **Human handoff relief** — the human should not have to manually summarize and relay every bit of shared context.
 - **Workspace memory over terminal scrollback** — important context becomes queryable local memory instead of disappearing into logs.
 - **Safer high-risk operations** — shared awareness can warn before git operations that may disrupt another session.
+- **Specialized agent memory** — agents can store compact namespaced JSON facts without inventing per-tool caches.
 - **Provider-agnostic collaboration** — any agent that can run shell commands can participate.
 
 See [`USE_CASES.md`](USE_CASES.md) for the fuller use-case narrative.
@@ -117,7 +118,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The next major work is hardening continuity, heartbeat, daemon lifecycle, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is daemon lifecycle hardening, overlap detection, targeting ergonomics, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 
