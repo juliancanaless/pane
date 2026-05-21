@@ -23,6 +23,7 @@ Usage:
   pane daemon start                 Start the local Pane shared-memory daemon
 
   pane init                         Register or resume this terminal pane as a Pane session
+  pane heartbeat                    Quietly refresh this pane session's cwd/branch/last-seen state
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
   pane board                        Show the workspace shared awareness board
@@ -65,6 +66,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runDaemon(args[1:], stdout)
 	case "init":
 		return runInit(args[1:], stdout)
+	case "heartbeat":
+		return runHeartbeat(args[1:], stdout)
 	case "status":
 		return runStatus(args[1:], stdout)
 	case "board":
@@ -166,6 +169,25 @@ func runInit(args []string, stdout io.Writer) error {
 		state = "resumed"
 	}
 	_, _ = fmt.Fprintf(stdout, "session %s: %s\nbranch: %s\nworkspace: %s\n", state, payloadString(response, "session_id"), payloadString(response, "branch"), payloadString(response, "workspace_root"))
+	return nil
+}
+
+func runHeartbeat(args []string, stdout io.Writer) error {
+	if len(args) != 0 {
+		return errors.New("usage: pane heartbeat")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionHeartbeat, Payload: protocol.EnvironmentPayload(env)})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "heartbeat: %s\n", payloadString(response, "session_id"))
 	return nil
 }
 

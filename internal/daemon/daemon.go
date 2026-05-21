@@ -133,6 +133,8 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return protocol.Success(map[string]any{"status": "stopping"})
 	case protocol.RequestSessionInit:
 		return d.handleSessionInit(request)
+	case protocol.RequestSessionHeartbeat:
+		return d.handleSessionHeartbeat(request)
 	case protocol.RequestSessionStatus:
 		return d.handleSessionStatus(request)
 	case protocol.RequestSessionIntent:
@@ -177,6 +179,24 @@ func (d *Daemon) handleSessionInit(request protocol.Request) protocol.Response {
 		Branch:        payloadString(request, "branch"),
 	}
 	result, err := d.manager.Init(context.Background(), input)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	d.ensureWorkspaceWatcher(input.WorkspaceRoot)
+	payload := sessionPayload(result.Session)
+	payload["resumed"] = result.Resumed
+	return protocol.Success(payload)
+}
+
+func (d *Daemon) handleSessionHeartbeat(request protocol.Request) protocol.Response {
+	input := session.InitInput{
+		PaneID:        payloadString(request, "pane_id"),
+		TTY:           payloadString(request, "tty"),
+		WorkspaceRoot: payloadString(request, "workspace_root"),
+		CWD:           payloadString(request, "cwd"),
+		Branch:        payloadString(request, "branch"),
+	}
+	result, err := d.manager.Heartbeat(context.Background(), input)
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}

@@ -90,7 +90,7 @@ Every request from a CLI subcommand to the daemon includes a `session_id` (or en
 | Request | Purpose |
 |---|---|
 | `SessionInit` | Register or resume a session for this pane/TTY/workspace |
-| `SessionHeartbeat` | Update last_seen, cwd, branch |
+| `SessionHeartbeat` | Update last_seen, cwd, branch, tty, and active status without changing intent |
 | `SessionClose` | Mark session inactive |
 | `SessionStatus` | Get current session info |
 | `SessionIntent` | Update the session's stated intent |

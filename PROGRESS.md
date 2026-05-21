@@ -324,6 +324,27 @@ Still needed:
 - add richer query/output formats if dogfooding needs them
 - surface selected state in summaries when useful
 
+### Phase 10 — heartbeat hardening
+
+Status: first pass implemented.
+
+Goal:
+
+Make shell/agent participation less noisy and less dependent on re-running full session init.
+
+Completed:
+
+1. Added daemon-backed `pane heartbeat`.
+2. Heartbeat refreshes cwd, branch, tty, last seen, and active status while preserving current intent.
+3. Heartbeat creates/resumes a session if none exists for the pane/workspace, preserving shell-hook convenience.
+4. Updated `pane shell-init` to use `pane heartbeat` instead of quietly re-running `pane init` on every prompt.
+
+Still needed:
+
+- daemon PID/lock/log lifecycle hardening
+- auto-start behavior outside shell hook
+- decide whether long-running agent commands need activity signals beyond prompt heartbeat
+
 ## Testing plan
 
 ### Automated baseline

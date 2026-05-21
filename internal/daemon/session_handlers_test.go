@@ -45,6 +45,21 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 		t.Fatalf("intent failed: %#v", intentResponse)
 	}
 
+	heartbeatPayload := map[string]any{
+		"pane_id":        "tty:/dev/ttys001",
+		"tty":            "/dev/ttys001",
+		"workspace_root": "/workspace",
+		"cwd":            "/workspace/other",
+		"branch":         "feature",
+	}
+	heartbeatResponse := d.Handle(protocol.Request{Type: protocol.RequestSessionHeartbeat, Payload: heartbeatPayload}, func() {})
+	if !heartbeatResponse.OK {
+		t.Fatalf("heartbeat failed: %#v", heartbeatResponse)
+	}
+	if heartbeatResponse.Payload["intent"] != "testing daemon-backed board" || heartbeatResponse.Payload["cwd"] != "/workspace/other" {
+		t.Fatalf("unexpected heartbeat payload: %#v", heartbeatResponse.Payload)
+	}
+
 	statusResponse := d.Handle(protocol.Request{Type: protocol.RequestSessionStatus, Payload: env}, func() {})
 	if !statusResponse.OK {
 		t.Fatalf("status failed: %#v", statusResponse)

@@ -76,6 +76,23 @@ func (m Manager) Status(ctx context.Context, paneID, workspaceRoot string) (Sess
 	return m.store.FindByPaneWorkspace(ctx, paneID, workspaceRoot)
 }
 
+func (m Manager) Heartbeat(ctx context.Context, input InitInput) (InitResult, error) {
+	now := m.now().Unix()
+	current, err := m.store.FindByPaneWorkspace(ctx, input.PaneID, input.WorkspaceRoot)
+	if errors.Is(err, ErrNotFound) {
+		return m.Init(ctx, input)
+	}
+	if err != nil {
+		return InitResult{}, err
+	}
+	current.TTY = input.TTY
+	current.CWD = input.CWD
+	current.Branch = input.Branch
+	current.LastSeenAt = now
+	current.Status = StatusActive
+	return InitResult{Session: current, Resumed: true}, m.store.Save(ctx, current)
+}
+
 func (m Manager) ListActive(ctx context.Context, workspaceRoot string) ([]Session, error) {
 	return m.store.ListActiveByWorkspace(ctx, workspaceRoot)
 }

@@ -47,7 +47,7 @@ _pane_start_daemon() {
 
 _pane_heartbeat() {
   _pane_start_daemon >/dev/null 2>&1 || return 0
-  "$PANE_BIN" init >/dev/null 2>&1 || return 0
+  "$PANE_BIN" heartbeat >/dev/null 2>&1 || return 0
 }
 
 _pane_session_start() {

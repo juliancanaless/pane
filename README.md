@@ -73,6 +73,7 @@ A Pane-aware agent should use Pane commands during its normal loop:
 
 ```bash
 pane init
+pane heartbeat
 pane board
 pane summary
 pane history --since 24h
@@ -104,7 +105,7 @@ This repository currently contains the early Go scaffold and first working slice
 - CLI entry point
 - SQLite persistence foundation
 - pane/TTY session identity
-- daemon-backed `pane init`, `pane status`, and `pane intent`
+- daemon-backed `pane init`, `pane heartbeat`, `pane status`, and `pane intent`
 - daemon-backed `pane board` with active session visibility and coordination indicators
 - daemon-backed `pane summary` with session-specific startup context, unread messages, recent files, and continuity history
 - daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
@@ -142,7 +143,7 @@ make build
 
 ## Shell integration
 
-Pane can print a shell hook that starts the daemon, registers the pane session, and heartbeats on each prompt:
+Pane can print a shell hook that starts the daemon, registers the pane session, and runs `pane heartbeat` on each prompt:
 
 ```bash
 eval "$(/path/to/pane shell-init)"

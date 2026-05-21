@@ -38,6 +38,7 @@ It exposes commands such as:
 
 - `pane daemon start|health|stop`
 - `pane init`
+- `pane heartbeat`
 - `pane status`
 - `pane intent <text>`
 - `pane board`
@@ -78,7 +79,7 @@ The CLI and daemon communicate over a Unix socket using:
 Current request families:
 
 - daemon health/stop
-- session init/status/intent/continue/history
+- session init/heartbeat/status/intent/continue/history
 - board/summary
 - message send/list/reply
 - generic state set/get/list/delete
@@ -251,6 +252,7 @@ CLI detects current session
 8. Shell/agent integration — first pass done
 9. Sequential continuity — first pass done
 10. Generic agent state — first pass done
+11. Heartbeat hardening — first pass done
 
 ## V2/V3 direction from the reframe
 
@@ -276,7 +278,7 @@ V3 starts generic agent memory:
 - starts the daemon if needed
 - initializes/resumes the pane session
 - prints a startup summary
-- heartbeats on each prompt
+- runs `pane heartbeat` on each prompt to refresh cwd, branch, and last-seen state without re-running full init output
 
 `pane shims install` creates a git shim at `~/.pane/shims/git` so ordinary `git` commands can route through `pane git` when that directory is prepended to PATH.
 

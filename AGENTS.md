@@ -10,6 +10,7 @@ At the beginning of work, run:
 
 ```bash
 ./bin/pane init
+./bin/pane heartbeat
 ./bin/pane summary
 ./bin/pane board
 ```
@@ -41,7 +42,7 @@ Set your current task before making meaningful changes:
 ./bin/pane intent "short description of what this session is doing"
 ```
 
-Update intent whenever you switch tasks.
+Update intent whenever you switch tasks. Run `./bin/pane heartbeat` if you change directories or branches and want Pane state refreshed before the next shell prompt.
 
 Check shared state before acting in an area another session may be touching:
 

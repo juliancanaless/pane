@@ -116,6 +116,26 @@ func TestManagerInitReturnsStoreErrors(t *testing.T) {
 	}
 }
 
+func TestManagerHeartbeatRefreshesExistingSession(t *testing.T) {
+	store := &fakeStore{status: Session{ID: "session-existing", WorkspaceRoot: "/repo", LastIntent: "keep intent", Status: StatusIdle}}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	result, err := manager.Heartbeat(context.Background(), InitInput{PaneID: "pane-1", TTY: "/dev/ttys001", WorkspaceRoot: "/repo", CWD: "/repo/subdir", Branch: "feature"})
+	if err != nil {
+		t.Fatalf("Heartbeat returned error: %v", err)
+	}
+	if !result.Resumed {
+		t.Fatal("expected existing session to be refreshed")
+	}
+	if result.Session.LastIntent != "keep intent" {
+		t.Fatalf("intent = %q", result.Session.LastIntent)
+	}
+	if result.Session.CWD != "/repo/subdir" || result.Session.Branch != "feature" || result.Session.Status != StatusActive {
+		t.Fatalf("unexpected refreshed session: %#v", result.Session)
+	}
+}
+
 func TestManagerContinueLinksCurrentPaneToParent(t *testing.T) {
 	store := &fakeStore{status: Session{ID: "session-parent", WorkspaceRoot: "/repo", LastIntent: "finish docs"}}
 	manager := NewManager(store)
