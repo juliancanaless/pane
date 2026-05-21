@@ -545,6 +545,25 @@ Completed:
 3. `pane board --all` flag to show all sessions including closed/stale.
 4. History output with status emojis, short IDs, and shortened parent references.
 
+### Phase 17 — daemon hardening
+
+Status: complete (V2.4).
+
+Goal:
+
+Make the daemon reliable enough that users never think about whether it's running.
+
+Completed:
+
+1. Exclusive process lock via flock on `~/.pane/pane.lock` — prevents two daemons from racing on startup.
+2. Stale PID/socket detection and cleanup — on startup, checks if previous daemon PID is alive; dead process → auto-cleans stale socket and PID file; live process → clear error message.
+3. Log redirection and rotation — daemon redirects stdout/stderr to log file internally; size-based rotation (>10MB → pane.log.1, 1 backup kept).
+4. `pane daemon start --background` — re-execs as detached child via setsid, parent waits up to 3s for health confirmation then exits.
+
+New files: `internal/daemon/lock.go`, `internal/daemon/logging.go`, `internal/daemon/background.go` with 12 unit tests.
+
+Smoke tested end-to-end: background start, dual-start race, kill -9 crash recovery, clean shutdown, self-logging.
+
 ## Testing plan
 
 ### Automated baseline
