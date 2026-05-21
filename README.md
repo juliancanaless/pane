@@ -70,6 +70,14 @@ pane git status
 
 Agents should update `pane intent` whenever they switch tasks. The board is only useful if each participating session writes its own current state.
 
+## Project docs
+
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture and design rules
+- [`PROGRESS.md`](PROGRESS.md) — committed phase plan, current status, and testing/dogfooding checklist
+- [`REFRAMING.md`](REFRAMING.md) — long-term reframe from coordination tool to environment-as-product
+- [`docs/architecture.md`](docs/architecture.md) — detailed V1 technical architecture
+- [`docs/80-20-overview.md`](docs/80-20-overview.md) — V1 product scope
+
 ## Current repo status
 
 This repository currently contains the early Go scaffold and first working slices:
@@ -85,7 +93,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The next major work is to surface message state in board/summary, then add file activity and git preflight behavior.
+The next major work is to surface message state in board/summary, then add file activity and git preflight behavior. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 
