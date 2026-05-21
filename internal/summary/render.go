@@ -11,7 +11,7 @@ func Render(value StartupSummary, now time.Time) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "[Pane] Session summary\n")
 	fmt.Fprintf(&out, "Workspace: %s\n", value.WorkspaceRoot)
-	fmt.Fprintf(&out, "\nCurrent session: %s — %s", value.Current.SessionID, value.Current.Status)
+	fmt.Fprintf(&out, "\nCurrent session: %s — %s", sessionLabel(value.Current), value.Current.Status)
 	if value.Current.Branch != "" {
 		fmt.Fprintf(&out, " — %s", value.Current.Branch)
 	}
@@ -34,7 +34,7 @@ func Render(value StartupSummary, now time.Time) string {
 	}
 
 	for _, peer := range value.Peers {
-		fmt.Fprintf(&out, "\n%s — %s", peer.SessionID, peer.Status)
+		fmt.Fprintf(&out, "\n%s — %s", sessionLabel(peer), peer.Status)
 		if peer.Branch != "" {
 			fmt.Fprintf(&out, " — %s", peer.Branch)
 		}
@@ -73,7 +73,11 @@ func renderOverlaps(out *strings.Builder, overlaps []OverlapInfo, workspaceRoot 
 	}
 	fmt.Fprintf(out, "\nOverlap:\n")
 	for _, overlap := range overlaps {
-		fmt.Fprintf(out, "  ⚠️  %s shares: %s\n", overlap.PeerSessionID, strings.Join(displayPaths(workspaceRoot, overlap.SharedFiles), ", "))
+		label := overlap.PeerSessionID
+		if overlap.PeerName != "" {
+			label = overlap.PeerName
+		}
+		fmt.Fprintf(out, "  ⚠️  %s shares: %s\n", label, strings.Join(displayPaths(workspaceRoot, overlap.SharedFiles), ", "))
 	}
 }
 
@@ -91,6 +95,13 @@ func renderCoordination(out *strings.Builder, coordination Coordination, now tim
 	if coordination.AwaitingReplies > 0 {
 		fmt.Fprintf(out, "  Awaiting replies: %d\n", coordination.AwaitingReplies)
 	}
+}
+
+func sessionLabel(line SessionLine) string {
+	if line.Name != "" {
+		return line.SessionID + " (" + line.Name + ")"
+	}
+	return line.SessionID
 }
 
 func displayIntent(intent string) string {

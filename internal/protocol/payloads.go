@@ -66,6 +66,14 @@ func IntentPayload(value session.Environment, intent string) map[string]any {
 	}
 }
 
+func NamePayload(value session.Environment, name string) map[string]any {
+	return map[string]any{
+		"pane_id":        value.PaneID,
+		"workspace_root": value.WorkspaceRoot,
+		"name":           name,
+	}
+}
+
 func BoardRequestPayload(value session.Environment) map[string]any {
 	return map[string]any{"workspace_root": value.WorkspaceRoot}
 }

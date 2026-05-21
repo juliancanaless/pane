@@ -24,6 +24,7 @@ const (
 	RequestStateGet         RequestType = "StateGet"
 	RequestStateList        RequestType = "StateList"
 	RequestStateDelete      RequestType = "StateDelete"
+	RequestSessionName      RequestType = "SessionName"
 )
 
 type Request struct {

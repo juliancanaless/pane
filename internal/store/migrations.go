@@ -90,4 +90,5 @@ CREATE INDEX IF NOT EXISTS idx_agent_state_workspace_key ON agent_state(workspac
 var additiveMigrations = []string{
 	`ALTER TABLE sessions ADD COLUMN parent_session_id TEXT REFERENCES sessions(session_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id)`,
+	`ALTER TABLE sessions ADD COLUMN name TEXT`,
 }

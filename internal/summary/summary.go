@@ -17,6 +17,7 @@ type StartupSummary struct {
 
 type OverlapInfo struct {
 	PeerSessionID string
+	PeerName      string
 	SharedFiles   []string
 }
 
@@ -30,6 +31,7 @@ func HistoryFromSessions(sessions []session.Session) []SessionLine {
 
 type SessionLine struct {
 	SessionID  string
+	Name       string
 	Status     session.Status
 	Branch     string
 	CWD        string
@@ -77,6 +79,7 @@ func FromSessionsWithLineage(workspaceRoot string, current session.Session, sess
 func fromSession(value session.Session) SessionLine {
 	return SessionLine{
 		SessionID:  value.ID,
+		Name:       value.Name,
 		Status:     value.Status,
 		Branch:     value.Branch,
 		CWD:        value.CWD,

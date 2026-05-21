@@ -202,6 +202,8 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 		return d.handleSessionStatus(request)
 	case protocol.RequestSessionIntent:
 		return d.handleSessionIntent(request)
+	case protocol.RequestSessionName:
+		return d.handleSessionName(request)
 	case protocol.RequestSessionContinue:
 		return d.handleSessionContinue(request)
 	case protocol.RequestSessionHistory:
@@ -357,6 +359,23 @@ func (d *Daemon) handleSessionIntent(request protocol.Request) protocol.Response
 	return protocol.Success(payload)
 }
 
+func (d *Daemon) handleSessionName(request protocol.Request) protocol.Response {
+	current, err := d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("no Pane session found for this pane/workspace; run `pane init` first")
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	name := payloadString(request, "name")
+	if err := d.manager.SetName(context.Background(), current.ID, name); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	payload := sessionPayload(current)
+	payload["name"] = name
+	return protocol.Success(payload)
+}
+
 func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	workspaceRoot := payloadString(request, "workspace_root")
 	var sessions []session.Session
@@ -379,7 +398,7 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	}
 	b := board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats)
 	b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
-	b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot)
+	b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot, sessions)
 	text := board.Render(b, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
@@ -412,7 +431,7 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	coordination := summary.Coordination{UnreadMessages: unread, AwaitingReplies: awaiting}
 	lineage := d.summaryLineage(context.Background(), workspaceRoot, current)
 	s := summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5), lineage)
-	s.Overlaps = d.summaryOverlaps(context.Background(), workspaceRoot, current.ID)
+	s.Overlaps = d.summaryOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
 	text := summary.Render(s, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
@@ -500,13 +519,20 @@ func (d *Daemon) boardOverlaps(ctx context.Context, workspaceRoot string) []boar
 	return result
 }
 
-func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string) []board.GitEventInfo {
+func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string, sessions []session.Session) []board.GitEventInfo {
 	if d.gitEventStore == (store.GitEventStore{}) {
 		return nil
 	}
 	events, err := d.gitEventStore.RecentByWorkspace(ctx, workspaceRoot, time.Now().Add(-15*time.Minute).Unix(), 5)
 	if err != nil || len(events) == 0 {
 		return nil
+	}
+	// Build session name lookup
+	nameMap := make(map[string]string, len(sessions))
+	for _, s := range sessions {
+		if s.Name != "" {
+			nameMap[s.ID] = s.Name
+		}
 	}
 	result := make([]board.GitEventInfo, 0, len(events))
 	for _, e := range events {
@@ -516,6 +542,7 @@ func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string) []boa
 		}
 		result = append(result, board.GitEventInfo{
 			SessionShortID: session.ShortID(e.SessionID),
+			SessionName:    nameMap[e.SessionID],
 			Command:        cmd,
 			Timestamp:      e.Timestamp,
 		})
@@ -523,7 +550,7 @@ func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string) []boa
 	return result
 }
 
-func (d *Daemon) summaryOverlaps(ctx context.Context, workspaceRoot, currentSessionID string) []summary.OverlapInfo {
+func (d *Daemon) summaryOverlaps(ctx context.Context, workspaceRoot, currentSessionID string, sessions []session.Session) []summary.OverlapInfo {
 	if d.activityStore == (store.FileActivityStore{}) {
 		return nil
 	}
@@ -531,13 +558,19 @@ func (d *Daemon) summaryOverlaps(ctx context.Context, workspaceRoot, currentSess
 	if err != nil || len(pathSessions) == 0 {
 		return nil
 	}
+	nameMap := make(map[string]string, len(sessions))
+	for _, s := range sessions {
+		if s.Name != "" {
+			nameMap[s.ID] = s.Name
+		}
+	}
 	overlaps := activity.ComputeOverlap(pathSessions)
 	var result []summary.OverlapInfo
 	for _, o := range overlaps {
 		if o.SessionA == currentSessionID {
-			result = append(result, summary.OverlapInfo{PeerSessionID: o.SessionB, SharedFiles: o.SharedFiles})
+			result = append(result, summary.OverlapInfo{PeerSessionID: o.SessionB, PeerName: nameMap[o.SessionB], SharedFiles: o.SharedFiles})
 		} else if o.SessionB == currentSessionID {
-			result = append(result, summary.OverlapInfo{PeerSessionID: o.SessionA, SharedFiles: o.SharedFiles})
+			result = append(result, summary.OverlapInfo{PeerSessionID: o.SessionA, PeerName: nameMap[o.SessionA], SharedFiles: o.SharedFiles})
 		}
 	}
 	return result
@@ -874,7 +907,12 @@ func renderHistory(workspaceRoot string, items []session.Session, now time.Time)
 	}
 	for _, item := range items {
 		shortID := session.ShortID(item.ID)
-		fmt.Fprintf(&out, "\n%s (short: %s)", item.ID, shortID)
+		fmt.Fprintf(&out, "\n%s", item.ID)
+		if item.Name != "" {
+			fmt.Fprintf(&out, " (%s)", item.Name)
+		} else {
+			fmt.Fprintf(&out, " (short: %s)", shortID)
+		}
 		fmt.Fprintf(&out, " — %s", statusLabel(item.Status))
 		if item.Branch != "" {
 			fmt.Fprintf(&out, " — %s", item.Branch)

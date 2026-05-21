@@ -29,6 +29,7 @@ Usage:
   pane close                        Close this pane session so it leaves the active board
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
+  pane name <name>                  Give this session a human-friendly name for targeting
   pane board [--all]                Show the workspace shared awareness board
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
@@ -43,7 +44,8 @@ Usage:
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks
 
-  pane ask <session-id> <message>   Send an async coordination question to another session
+  pane ask <target> <message>        Send an async coordination question to another session
+                                     Target can be a session name, short ID, or full ID
   pane inbox                        Show unread coordination messages for this session
   pane reply <message-id> <message> Reply to a coordination thread
 
@@ -90,6 +92,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runHistory(args[1:], stdout)
 	case "intent":
 		return runIntent(args[1:], stdout)
+	case "name":
+		return runName(args[1:], stdout)
 	case "shell-init":
 		return runShellInit(args[1:], stdout)
 	case "shims":
@@ -427,6 +431,26 @@ func runIntent(args []string, stdout io.Writer) error {
 	return nil
 }
 
+func runName(args []string, stdout io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("usage: pane name <name>")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	name := strings.Join(args, " ")
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionName, Payload: protocol.NamePayload(env, name)})
+	if err != nil {
+		return err
+	}
+	if !response.OK {
+		return errors.New(response.Error)
+	}
+	_, _ = fmt.Fprintf(stdout, "name set: %s\n", payloadString(response, "name"))
+	return nil
+}
+
 func runGit(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		return errors.New("usage: pane git <git-args...>")
@@ -570,7 +594,7 @@ func runStateDelete(args []string, stdout io.Writer) error {
 
 func runAsk(args []string, stdout io.Writer) error {
 	if len(args) < 2 {
-		return errors.New("usage: pane ask <session-id> <message>")
+		return errors.New("usage: pane ask <name-or-id> <message>")
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {

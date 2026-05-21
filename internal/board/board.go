@@ -11,6 +11,7 @@ type Board struct {
 
 type GitEventInfo struct {
 	SessionShortID string
+	SessionName    string
 	Command        string
 	Timestamp      int64
 }
@@ -24,6 +25,7 @@ type OverlapInfo struct {
 type Session struct {
 	ID              string
 	ShortID         string
+	Name            string
 	Status          session.Status
 	Branch          string
 	CWD             string
@@ -51,6 +53,7 @@ func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, mes
 		items = append(items, Session{
 			ID:              value.ID,
 			ShortID:         session.ShortID(value.ID),
+			Name:            value.Name,
 			Status:          value.Status,
 			Branch:          value.Branch,
 			CWD:             value.CWD,

@@ -18,10 +18,12 @@ type Store interface {
 	FindResumable(context.Context, string, string, string, int64) (Session, error)
 	FindByPaneWorkspace(context.Context, string, string) (Session, error)
 	FindByID(context.Context, string) (Session, error)
+	FindByName(context.Context, string, string) (Session, error)
 	ListActiveByWorkspace(context.Context, string) ([]Session, error)
 	ListRecentByWorkspace(context.Context, string, int) ([]Session, error)
 	UpdateIntent(context.Context, string, string, int64) error
 	UpdateStatus(context.Context, string, Status, int64) error
+	UpdateName(context.Context, string, string) error
 	CloseStaleByWorkspace(context.Context, string, int64, int64) (int64, error)
 }
 
@@ -155,6 +157,10 @@ func (m Manager) SetIntent(ctx context.Context, sessionID, intent string) error 
 	return m.store.UpdateIntent(ctx, sessionID, intent, m.now().Unix())
 }
 
+func (m Manager) SetName(ctx context.Context, sessionID, name string) error {
+	return m.store.UpdateName(ctx, sessionID, name)
+}
+
 func (m Manager) Close(ctx context.Context, paneID, workspaceRoot string) (Session, error) {
 	current, err := m.store.FindByPaneWorkspace(ctx, paneID, workspaceRoot)
 	if err != nil {
@@ -191,9 +197,15 @@ func (m Manager) Resolve(ctx context.Context, workspaceRoot, reference string) (
 	if reference == "" {
 		return Session{}, ErrNotFound
 	}
+	// Exact ID match
 	if exact, err := m.store.FindByID(ctx, reference); err == nil && exact.WorkspaceRoot == workspaceRoot {
 		return exact, nil
 	}
+	// Exact name match (active/idle sessions only)
+	if named, err := m.store.FindByName(ctx, workspaceRoot, reference); err == nil {
+		return named, nil
+	}
+	// Short ID / prefix match
 	items, err := m.store.ListRecentByWorkspace(ctx, workspaceRoot, 100)
 	if err != nil {
 		return Session{}, err
@@ -202,6 +214,23 @@ func (m Manager) Resolve(ctx context.Context, workspaceRoot, reference string) (
 	for _, item := range items {
 		if matchesSessionReference(item.ID, reference) {
 			matches = append(matches, item)
+		}
+	}
+	// Also try case-insensitive name prefix match
+	refLower := strings.ToLower(reference)
+	for _, item := range items {
+		if item.Name != "" && strings.HasPrefix(strings.ToLower(item.Name), refLower) {
+			// Avoid duplicates if already matched by ID
+			alreadyMatched := false
+			for _, m := range matches {
+				if m.ID == item.ID {
+					alreadyMatched = true
+					break
+				}
+			}
+			if !alreadyMatched {
+				matches = append(matches, item)
+			}
 		}
 	}
 	if len(matches) == 0 {

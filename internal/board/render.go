@@ -20,7 +20,9 @@ func Render(value Board, now time.Time) string {
 
 	for _, item := range value.Sessions {
 		fmt.Fprintf(&out, "\n%s", item.ID)
-		if item.ShortID != "" && item.ShortID != item.ID {
+		if item.Name != "" {
+			fmt.Fprintf(&out, " (%s)", item.Name)
+		} else if item.ShortID != "" && item.ShortID != item.ID {
 			fmt.Fprintf(&out, " (short: %s)", item.ShortID)
 		}
 		fmt.Fprintf(&out, " — %s", item.Status)
@@ -47,13 +49,21 @@ func Render(value Board, now time.Time) string {
 		for _, overlap := range value.Overlaps {
 			shortA := overlap.SessionA
 			shortB := overlap.SessionB
-			// Try to find short IDs from sessions
+			// Prefer name, then short ID
 			for _, s := range value.Sessions {
-				if s.ID == overlap.SessionA && s.ShortID != "" {
-					shortA = s.ShortID
+				if s.ID == overlap.SessionA {
+					if s.Name != "" {
+						shortA = s.Name
+					} else if s.ShortID != "" {
+						shortA = s.ShortID
+					}
 				}
-				if s.ID == overlap.SessionB && s.ShortID != "" {
-					shortB = s.ShortID
+				if s.ID == overlap.SessionB {
+					if s.Name != "" {
+						shortB = s.Name
+					} else if s.ShortID != "" {
+						shortB = s.ShortID
+					}
 				}
 			}
 			fmt.Fprintf(&out, "  ⚠️  %s ↔ %s: %s\n", shortA, shortB, strings.Join(displayPaths(value.WorkspaceRoot, overlap.SharedFiles), ", "))
@@ -63,7 +73,11 @@ func Render(value Board, now time.Time) string {
 	if len(value.RecentGitEvents) > 0 {
 		fmt.Fprintf(&out, "\nRecent git:\n")
 		for _, event := range value.RecentGitEvents {
-			fmt.Fprintf(&out, "  %s — %s (%s)\n", event.SessionShortID, event.Command, relativeTime(event.Timestamp, now))
+			label := event.SessionShortID
+			if event.SessionName != "" {
+				label = event.SessionName
+			}
+			fmt.Fprintf(&out, "  %s — %s (%s)\n", label, event.Command, relativeTime(event.Timestamp, now))
 		}
 	}
 

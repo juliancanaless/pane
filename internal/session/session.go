@@ -35,4 +35,5 @@ type Session struct {
 	LastSeenAt    int64
 	Status        Status
 	ParentID      string
+	Name          string
 }

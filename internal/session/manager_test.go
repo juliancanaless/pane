@@ -73,6 +73,26 @@ func (f *fakeStore) UpdateStatus(_ context.Context, sessionID string, status Sta
 	return nil
 }
 
+func (f *fakeStore) UpdateName(_ context.Context, sessionID, name string) error {
+	if f.status.ID == sessionID {
+		f.status.Name = name
+		return nil
+	}
+	return ErrNotFound
+}
+
+func (f *fakeStore) FindByName(_ context.Context, workspaceRoot, name string) (Session, error) {
+	for _, item := range f.recent {
+		if item.Name == name && item.WorkspaceRoot == workspaceRoot {
+			return item, nil
+		}
+	}
+	if f.status.Name == name && f.status.WorkspaceRoot == workspaceRoot {
+		return f.status, nil
+	}
+	return Session{}, ErrNotFound
+}
+
 func (f *fakeStore) CloseStaleByWorkspace(_ context.Context, _ string, seenBefore int64, seenAt int64) (int64, error) {
 	var count int64
 	for i, item := range f.recent {
@@ -185,6 +205,45 @@ func TestManagerResolveReturnsAmbiguousForSharedPrefix(t *testing.T) {
 	_, err := manager.Resolve(context.Background(), "/repo", "abc")
 	if !errors.Is(err, ErrAmbiguous) {
 		t.Fatalf("Resolve error = %v", err)
+	}
+}
+
+func TestManagerResolveByName(t *testing.T) {
+	store := &fakeStore{recent: []Session{
+		{ID: "session-aaa", WorkspaceRoot: "/repo", Name: "auth-refactor"},
+		{ID: "session-bbb", WorkspaceRoot: "/repo", Name: "db-migration"},
+	}}
+	manager := NewManager(store)
+
+	// Exact name match via FindByName
+	result, err := manager.Resolve(context.Background(), "/repo", "auth-refactor")
+	if err != nil {
+		t.Fatalf("Resolve by name returned error: %v", err)
+	}
+	if result.ID != "session-aaa" {
+		t.Fatalf("session id = %q, want session-aaa", result.ID)
+	}
+
+	// Name prefix match
+	result, err = manager.Resolve(context.Background(), "/repo", "db-")
+	if err != nil {
+		t.Fatalf("Resolve by name prefix returned error: %v", err)
+	}
+	if result.ID != "session-bbb" {
+		t.Fatalf("session id = %q, want session-bbb", result.ID)
+	}
+}
+
+func TestManagerSetName(t *testing.T) {
+	store := &fakeStore{status: Session{ID: "session-test", WorkspaceRoot: "/repo", Status: StatusActive}}
+	manager := NewManager(store)
+
+	err := manager.SetName(context.Background(), "session-test", "my-task")
+	if err != nil {
+		t.Fatalf("SetName returned error: %v", err)
+	}
+	if store.status.Name != "my-task" {
+		t.Fatalf("name = %q, want my-task", store.status.Name)
 	}
 }
 
