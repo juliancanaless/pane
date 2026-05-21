@@ -74,8 +74,7 @@ Also smoke-tested locally with temporary database/socket paths.
 These are important but not implemented yet:
 
 - file working-set overlap detection
-- shell integration / `pane shell-init`
-- daemon auto-start
+- daemon auto-start outside shell hook
 - PID/lock/log lifecycle
 - session lineage / `pane continue`
 - `pane history`
@@ -256,23 +255,29 @@ Still needed:
 
 ### Phase 7 — shell/agent integration
 
-Status: next.
+Status: complete first pass.
 
 Goal:
 
 Agents naturally participate in Pane without humans manually driving every update.
 
-Tasks:
+Completed:
 
-1. `pane shell-init`
-2. heartbeat hooks
-3. git shim generation
-4. agent instruction snippet / AGENTS.md guidance
-5. dogfood with real agents across multiple panes
+1. `pane shell-init` prints a shell hook.
+2. Shell hook starts daemon if needed, initializes the session, prints summary, and heartbeats on prompt for bash/zsh.
+3. `pane shims install` creates a transparent git shim in `~/.pane/shims`.
+4. `AGENTS.md` gives agent operating instructions.
+
+Still needed:
+
+- dogfood the shell hook in real terminals
+- consider daemon PID/log management and non-shell auto-start
+- decide how aggressive heartbeat should be
+- add installer ergonomics
 
 ### Phase 8 — sequential continuity
 
-Status: future.
+Status: next strategic phase.
 
 Goal:
 

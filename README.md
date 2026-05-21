@@ -118,3 +118,20 @@ make build
 ./bin/pane help
 ./bin/pane daemon start
 ```
+
+## Shell integration
+
+Pane can print a shell hook that starts the daemon, registers the pane session, and heartbeats on each prompt:
+
+```bash
+eval "$(/path/to/pane shell-init)"
+```
+
+For transparent git guardrails, install the git shim and prepend it to PATH:
+
+```bash
+pane shims install
+export PATH="$HOME/.pane/shims:$PATH"
+```
+
+Agents should read [`AGENTS.md`](AGENTS.md) for operating instructions.

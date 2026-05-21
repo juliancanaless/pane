@@ -244,7 +244,8 @@ CLI detects current session
 5. Surface message state in board/summary — done
 6. File activity and working sets — first pass done
 7. Git passthrough and preflight — first pass done
-8. Shell/agent integration — next
+8. Shell/agent integration — first pass done
+9. Sequential continuity — next
 
 ## V2/V3 direction from the reframe
 
@@ -262,6 +263,19 @@ V3 should add generic agent memory:
 - `pane state set/get/list/delete`
 - namespaced state APIs
 - integrations for specialized agents such as Neon/APM
+
+## Shell and agent integration
+
+`pane shell-init` prints shell code for bash/zsh that:
+
+- starts the daemon if needed
+- initializes/resumes the pane session
+- prints a startup summary
+- heartbeats on each prompt
+
+`pane shims install` creates a git shim at `~/.pane/shims/git` so ordinary `git` commands can route through `pane git` when that directory is prepended to PATH.
+
+`AGENTS.md` gives coding agents the operating contract for this repo.
 
 ## Design rules for future agents
 

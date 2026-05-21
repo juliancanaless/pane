@@ -26,6 +26,9 @@ Usage:
   pane board                        Show the workspace shared awareness board
   pane summary                      Show startup context for this session
 
+  pane shell-init                   Print shell hook for daemon start + session heartbeat
+  pane shims install                Install transparent git shim under ~/.pane/shims
+
   pane daemon health                Check daemon health over the Unix socket
   pane daemon stop                  Ask the daemon to stop cleanly
 
@@ -61,6 +64,10 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runSummary(args[1:], stdout)
 	case "intent":
 		return runIntent(args[1:], stdout)
+	case "shell-init":
+		return runShellInit(args[1:], stdout)
+	case "shims":
+		return runShims(args[1:], stdout)
 	case "git":
 		return runGit(args[1:], stdout, stderr)
 	case "ask":
