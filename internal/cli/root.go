@@ -417,7 +417,10 @@ func runGit(args []string, stdout, stderr io.Writer) error {
 				_, _ = fmt.Fprintf(stderr, "[Pane] Warning: %s\n", warning)
 			}
 			if response.Block {
-				return errors.New("git command blocked by Pane preflight")
+				_, _ = fmt.Fprintf(stderr, "[Pane] This operation is risky given current shared state.\n")
+				if !confirmProceed(stderr) {
+					return errors.New("git command cancelled by user")
+				}
 			}
 		}
 	}

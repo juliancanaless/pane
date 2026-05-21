@@ -63,3 +63,35 @@ func TestPreflightBlocksForceWithSameBranchPeer(t *testing.T) {
 		t.Fatal("expected block")
 	}
 }
+
+func TestPreflightCommandRiskWarning(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		wantRisk string
+	}{
+		{name: "rebase with peer on branch", args: []string{"rebase", "main"}, wantRisk: "rebase rewrites commit history"},
+		{name: "merge with peer on branch", args: []string{"merge", "feature"}, wantRisk: "merge modifies the branch head"},
+		{name: "reset hard with peer", args: []string{"reset", "--hard"}, wantRisk: "reset --hard discards local changes"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := Preflight(PreflightInput{
+				Intent:         Parse(tt.args),
+				CurrentSession: session.Session{ID: "session-a", Branch: "feature"},
+				ActiveSessions: []session.Session{{ID: "session-a", Branch: "feature"}, {ID: "session-b", Branch: "feature"}},
+			})
+			found := false
+			for _, w := range result.Warnings {
+				if strings.Contains(w, tt.wantRisk) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("expected risk warning containing %q, got: %v", tt.wantRisk, result.Warnings)
+			}
+		})
+	}
+}

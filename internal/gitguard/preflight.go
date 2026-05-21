@@ -29,6 +29,7 @@ func Preflight(input PreflightInput) PreflightResult {
 	}
 	warnings := branchWarnings(input)
 	warnings = append(warnings, fileOverlapWarnings(input)...)
+	warnings = append(warnings, commandRiskWarning(input)...)
 	block := input.Intent.Forceful && sameBranchPeer(input)
 	if block {
 		warnings = append(warnings, "forceful git operation while another session is active on this branch")
@@ -89,4 +90,31 @@ func joinFiles(files []string, total int) string {
 		result += fmt.Sprintf(" (+%d more)", total-len(files))
 	}
 	return result
+}
+
+func commandRiskWarning(input PreflightInput) []string {
+	if !sameBranchPeer(input) && len(input.FileOverlaps) == 0 {
+		return nil
+	}
+	var risk string
+	switch input.Intent.Subcommand {
+	case "rebase":
+		risk = "rebase rewrites commit history — this may disrupt other sessions on this branch"
+	case "merge":
+		risk = "merge modifies the branch head — other sessions may need to integrate these changes"
+	case "reset":
+		risk = "reset --hard discards local changes — this may destroy uncommitted work visible to other sessions"
+	case "push":
+		if input.Intent.Forceful {
+			risk = "force push rewrites remote history — other sessions pulling this branch will diverge"
+		}
+	case "checkout", "switch":
+		if !input.Intent.CreatingBranch && sameBranchPeer(input) {
+			risk = "switching to a branch where another session is actively working"
+		}
+	}
+	if risk == "" {
+		return nil
+	}
+	return []string{risk}
 }
