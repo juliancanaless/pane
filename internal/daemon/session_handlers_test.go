@@ -95,6 +95,15 @@ func TestMessageHandlers(t *testing.T) {
 	}
 	messageID := send.Payload["message_id"].(string)
 
+	board := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/workspace"}}, func() {})
+	if !board.OK || !strings.Contains(board.Payload["text"].(string), "1 unread") {
+		t.Fatalf("expected board unread indicator: %#v", board)
+	}
+	summaryB := d.Handle(protocol.Request{Type: protocol.RequestGetSummary, Payload: envB}, func() {})
+	if !summaryB.OK || !strings.Contains(summaryB.Payload["text"].(string), "Unread messages: 1") {
+		t.Fatalf("expected summary unread indicator: %#v", summaryB)
+	}
+
 	inboxB := d.Handle(protocol.Request{Type: protocol.RequestMessageList, Payload: envB}, func() {})
 	if !inboxB.OK {
 		t.Fatalf("inbox failed: %#v", inboxB)

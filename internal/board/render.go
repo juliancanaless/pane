@@ -27,9 +27,23 @@ func Render(value Board, now time.Time) string {
 		fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(item.LastIntent))
 		fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, item.CWD))
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
+		if item.UnreadMessages > 0 || item.AwaitingReplies > 0 {
+			fmt.Fprintf(&out, "  Coordination: %s\n", coordinationSummary(item.UnreadMessages, item.AwaitingReplies))
+		}
 	}
 
 	return out.String()
+}
+
+func coordinationSummary(unread, awaiting int) string {
+	parts := make([]string, 0, 2)
+	if unread > 0 {
+		parts = append(parts, fmt.Sprintf("%d unread", unread))
+	}
+	if awaiting > 0 {
+		parts = append(parts, fmt.Sprintf("%d awaiting reply", awaiting))
+	}
+	return strings.Join(parts, ", ")
 }
 
 func displayIntent(intent string) string {

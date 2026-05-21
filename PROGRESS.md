@@ -47,6 +47,7 @@ Also smoke-tested locally with temporary database/socket paths.
 - `pane board`
 - shows active/idle sessions in the workspace
 - includes session id, status, branch, cwd, intent, last seen
+- includes compact coordination indicators for unread messages and awaiting replies
 - daemon-backed
 
 ### Summary
@@ -54,6 +55,7 @@ Also smoke-tested locally with temporary database/socket paths.
 - `pane summary`
 - current-session startup/resume view
 - shows current session and peer sessions
+- surfaces unread messages and awaiting-reply counts for the current session
 - daemon-backed
 
 ### Messaging
@@ -69,8 +71,6 @@ Also smoke-tested locally with temporary database/socket paths.
 
 These are important but not implemented yet:
 
-- message state surfaced inside `pane board`
-- message state surfaced inside `pane summary`
 - file activity watcher
 - file working-set / overlap detection
 - `pane git` real passthrough
@@ -172,35 +172,41 @@ Still needed later:
 
 ### Phase 4 — message-aware board and summary
 
-Status: next.
+Status: complete first pass.
 
 Goal:
 
 Agents should not need to remember to run `pane inbox` to know coordination state exists. Board and summary should surface message state.
 
-Tasks:
+Completed:
 
-1. Add message store queries for:
+1. Added message store queries for:
    - unread count by session
    - queued messages for current session
    - open outbound threads from current session
-2. Add a coordination section to `pane summary`:
+2. Added a coordination section to `pane summary`:
    - unread messages
    - sent questions waiting for reply
-3. Add compact message indicators to `pane board`:
+3. Added compact message indicators to `pane board`:
    - unread count per session
-   - maybe open outbound count per session
-4. Keep output concise; do not dump full message bodies in board.
+   - awaiting reply count per session
+4. Kept board output compact; full message bodies stay in summary/inbox.
 
 Exit criteria:
 
-- after `pane ask`, target session sees a visible unread indicator in summary/board
-- `pane inbox` still shows full message bodies
-- board remains compact
+- after `pane ask`, target session sees a visible unread indicator in summary/board — done
+- `pane inbox` still shows full message bodies — done
+- board remains compact — done
+
+Remaining hardening:
+
+- Refine open-thread semantics after more dogfooding.
+- Decide whether summary should show full unread bodies or only previews.
+- Improve message targeting ergonomics.
 
 ### Phase 5 — file activity and working sets
 
-Status: not started.
+Status: next.
 
 Goal:
 
@@ -353,7 +359,7 @@ Start using Pane now with multiple panes.
 
 The immediate dogfooding question:
 
-> Does board + summary + messaging reduce how much context the human has to hold?
+> Does board + summary + visible message state reduce how much context the human has to hold?
 
 Collect notes on:
 

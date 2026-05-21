@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juliancanalez/pane/internal/messages"
 	"github.com/juliancanalez/pane/internal/session"
 )
 
@@ -13,6 +14,10 @@ func TestRenderSummaryWithPeer(t *testing.T) {
 		WorkspaceRoot: "/workspace",
 		Current:       SessionLine{SessionID: "session-a", Status: session.StatusActive, Branch: "main", CWD: "/workspace/src", LastIntent: "refactoring auth", LastSeenAt: 100},
 		Peers:         []SessionLine{{SessionID: "session-b", Status: session.StatusActive, Branch: "main", CWD: "/workspace/tests", LastIntent: "writing auth tests", LastSeenAt: 70}},
+		Coordination: Coordination{
+			UnreadMessages:  []messages.Message{{ID: "msg-1", FromSession: "session-b", Body: "Are you done?", CreatedAt: 100}},
+			AwaitingReplies: 1,
+		},
 	}
 
 	got := Render(value, time.Unix(130, 0))
@@ -21,6 +26,10 @@ func TestRenderSummaryWithPeer(t *testing.T) {
 		"Current session: session-a — active — main",
 		"Intent: refactoring auth",
 		"CWD: src",
+		"Coordination:",
+		"Unread messages: 1",
+		"msg-1 from session-b (30s ago): Are you done?",
+		"Awaiting replies: 1",
 		"Other sessions: 1",
 		"session-b — active — main",
 		"Intent: writing auth tests",

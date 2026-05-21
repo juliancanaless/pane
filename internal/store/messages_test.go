@@ -40,6 +40,20 @@ func TestMessageStoreInboxLifecycle(t *testing.T) {
 	if len(inbox) != 1 || inbox[0].ID != "msg-1" {
 		t.Fatalf("unexpected inbox: %#v", inbox)
 	}
+	queuedCount, err := store.CountQueuedForSession(ctx, "session-b")
+	if err != nil {
+		t.Fatalf("CountQueuedForSession returned error: %v", err)
+	}
+	if queuedCount != 1 {
+		t.Fatalf("queued count = %d, want 1", queuedCount)
+	}
+	openOutbound, err := store.CountOpenOutboundForSession(ctx, "session-a")
+	if err != nil {
+		t.Fatalf("CountOpenOutboundForSession returned error: %v", err)
+	}
+	if openOutbound != 1 {
+		t.Fatalf("open outbound = %d, want 1", openOutbound)
+	}
 
 	if err := store.MarkDelivered(ctx, []string{"msg-1"}, 20); err != nil {
 		t.Fatalf("MarkDelivered returned error: %v", err)
@@ -58,5 +72,16 @@ func TestMessageStoreInboxLifecycle(t *testing.T) {
 	}
 	if stored.State != messages.StateDelivered || stored.DeliveredAt == nil || *stored.DeliveredAt != 20 {
 		t.Fatalf("unexpected stored message: %#v", stored)
+	}
+	reply := messages.Message{ID: "msg-2", ThreadID: "msg-1", FromSession: "session-b", ToSession: "session-a", Body: "Done", State: messages.StateQueued, CreatedAt: 30}
+	if err := store.Save(ctx, reply); err != nil {
+		t.Fatalf("Save reply returned error: %v", err)
+	}
+	openOutbound, err = store.CountOpenOutboundForSession(ctx, "session-a")
+	if err != nil {
+		t.Fatalf("CountOpenOutboundForSession returned error after reply: %v", err)
+	}
+	if openOutbound != 0 {
+		t.Fatalf("open outbound after reply = %d, want 0", openOutbound)
 	}
 }

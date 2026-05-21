@@ -1,11 +1,15 @@
 package summary
 
-import "github.com/juliancanalez/pane/internal/session"
+import (
+	"github.com/juliancanalez/pane/internal/messages"
+	"github.com/juliancanalez/pane/internal/session"
+)
 
 type StartupSummary struct {
 	WorkspaceRoot string
 	Current       SessionLine
 	Peers         []SessionLine
+	Coordination  Coordination
 }
 
 type SessionLine struct {
@@ -17,7 +21,16 @@ type SessionLine struct {
 	LastSeenAt int64
 }
 
+type Coordination struct {
+	UnreadMessages  []messages.Message
+	AwaitingReplies int
+}
+
 func FromSessions(workspaceRoot string, current session.Session, sessions []session.Session) StartupSummary {
+	return FromSessionsWithCoordination(workspaceRoot, current, sessions, Coordination{})
+}
+
+func FromSessionsWithCoordination(workspaceRoot string, current session.Session, sessions []session.Session, coordination Coordination) StartupSummary {
 	peers := make([]SessionLine, 0, len(sessions))
 	for _, value := range sessions {
 		line := fromSession(value)
@@ -26,7 +39,7 @@ func FromSessions(workspaceRoot string, current session.Session, sessions []sess
 		}
 		peers = append(peers, line)
 	}
-	return StartupSummary{WorkspaceRoot: workspaceRoot, Current: fromSession(current), Peers: peers}
+	return StartupSummary{WorkspaceRoot: workspaceRoot, Current: fromSession(current), Peers: peers, Coordination: coordination}
 }
 
 func fromSession(value session.Session) SessionLine {

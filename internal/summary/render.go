@@ -20,6 +20,8 @@ func Render(value StartupSummary, now time.Time) string {
 	fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, value.Current.CWD))
 	fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(value.Current.LastSeenAt, now))
 
+	renderCoordination(&out, value.Coordination, now)
+
 	fmt.Fprintf(&out, "\nOther sessions: %d\n", len(value.Peers))
 	if len(value.Peers) == 0 {
 		fmt.Fprintf(&out, "  None currently visible in this workspace.\n")
@@ -38,6 +40,22 @@ func Render(value StartupSummary, now time.Time) string {
 	}
 
 	return out.String()
+}
+
+func renderCoordination(out *strings.Builder, coordination Coordination, now time.Time) {
+	if len(coordination.UnreadMessages) == 0 && coordination.AwaitingReplies == 0 {
+		return
+	}
+	fmt.Fprintf(out, "\nCoordination:\n")
+	if len(coordination.UnreadMessages) > 0 {
+		fmt.Fprintf(out, "  Unread messages: %d\n", len(coordination.UnreadMessages))
+		for _, message := range coordination.UnreadMessages {
+			fmt.Fprintf(out, "  - %s from %s (%s): %s\n", message.ID, message.FromSession, relativeTime(message.CreatedAt, now), message.Body)
+		}
+	}
+	if coordination.AwaitingReplies > 0 {
+		fmt.Fprintf(out, "  Awaiting replies: %d\n", coordination.AwaitingReplies)
+	}
 }
 
 func displayIntent(intent string) string {

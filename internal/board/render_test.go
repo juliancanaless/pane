@@ -12,7 +12,7 @@ func TestRenderBoard(t *testing.T) {
 	value := Board{
 		WorkspaceRoot: "/workspace",
 		Sessions: []Session{
-			{ID: "session-a", Status: session.StatusActive, Branch: "main", CWD: "/workspace/src", LastIntent: "working on auth", LastSeenAt: 100},
+			{ID: "session-a", Status: session.StatusActive, Branch: "main", CWD: "/workspace/src", LastIntent: "working on auth", LastSeenAt: 100, UnreadMessages: 2, AwaitingReplies: 1},
 		},
 	}
 
@@ -25,6 +25,7 @@ func TestRenderBoard(t *testing.T) {
 		"Intent: working on auth",
 		"CWD: src",
 		"Last seen: 30s ago",
+		"Coordination: 2 unread, 1 awaiting reply",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("Render output missing %q:\n%s", want, got)

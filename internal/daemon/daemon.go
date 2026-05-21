@@ -192,7 +192,11 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
-	text := board.Render(board.FromSessions(workspaceRoot, sessions), time.Now())
+	stats, err := d.boardMessageStats(context.Background(), sessions)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	text := board.Render(board.FromSessionsWithMessages(workspaceRoot, sessions, stats), time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
 
@@ -209,8 +213,33 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
-	text := summary.Render(summary.FromSessions(workspaceRoot, current, sessions), time.Now())
+	unread, err := d.messageStore.ListQueuedForSession(context.Background(), current.ID)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	awaiting, err := d.messageStore.CountOpenOutboundForSession(context.Background(), current.ID)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	coordination := summary.Coordination{UnreadMessages: unread, AwaitingReplies: awaiting}
+	text := summary.Render(summary.FromSessionsWithCoordination(workspaceRoot, current, sessions, coordination), time.Now())
 	return protocol.Success(map[string]any{"text": text})
+}
+
+func (d *Daemon) boardMessageStats(ctx context.Context, sessions []session.Session) (map[string]board.MessageStats, error) {
+	stats := make(map[string]board.MessageStats, len(sessions))
+	for _, item := range sessions {
+		unread, err := d.messageStore.CountQueuedForSession(ctx, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		awaiting, err := d.messageStore.CountOpenOutboundForSession(ctx, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		stats[item.ID] = board.MessageStats{UnreadMessages: unread, AwaitingReplies: awaiting}
+	}
+	return stats, nil
 }
 
 func (d *Daemon) handleMessageSend(request protocol.Request) protocol.Response {

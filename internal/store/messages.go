@@ -77,6 +77,34 @@ WHERE message_id = ?
 	return nil
 }
 
+func (s MessageStore) CountQueuedForSession(ctx context.Context, sessionID string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM messages
+WHERE state = 'queued'
+  AND (to_session = ? OR to_session = '*')
+`, sessionID).Scan(&count)
+	return count, err
+}
+
+func (s MessageStore) CountOpenOutboundForSession(ctx context.Context, sessionID string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM messages m
+WHERE m.from_session = ?
+  AND NOT EXISTS (
+    SELECT 1
+    FROM messages later
+    WHERE later.thread_id = m.thread_id
+      AND later.created_at > m.created_at
+      AND later.from_session != ?
+  )
+`, sessionID, sessionID).Scan(&count)
+	return count, err
+}
+
 type messageScanner interface {
 	Scan(dest ...any) error
 }
