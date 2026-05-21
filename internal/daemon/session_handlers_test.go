@@ -1,10 +1,13 @@
 package daemon
 
 import (
+	"context"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/juliancanalez/pane/internal/activity"
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/session"
 	"github.com/juliancanalez/pane/internal/store"
@@ -94,6 +97,73 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	boardAfterClose := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/workspace"}}, func() {})
 	if !boardAfterClose.OK || strings.Contains(boardAfterClose.Payload["text"].(string), sessionID) {
 		t.Fatalf("closed session should not appear on board: %#v", boardAfterClose)
+	}
+}
+
+func TestBoardAndSummaryShowOverlap(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {})
+	initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {})
+	if !initA.OK || !initB.OK {
+		t.Fatalf("init failed: %#v %#v", initA, initB)
+	}
+	sessionA := initA.Payload["session_id"].(string)
+	sessionB := initB.Payload["session_id"].(string)
+
+	// Create overlapping file activity
+	now := time.Now().Unix()
+	for _, fa := range []struct {
+		sid, path string
+	}{
+		{sessionA, "/workspace/shared.go"},
+		{sessionB, "/workspace/shared.go"},
+		{sessionA, "/workspace/solo.go"},
+	} {
+		if err := d.activityStore.Save(context.Background(), activity.FileActivity{
+			SessionID: fa.sid, Path: fa.path, EventType: activity.EventModified,
+			Attribution: activity.AttributionHigh, Timestamp: now,
+		}); err != nil {
+			t.Fatalf("Save activity failed: %v", err)
+		}
+	}
+
+	// Board should show overlap
+	boardResp := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/workspace"}}, func() {})
+	if !boardResp.OK {
+		t.Fatalf("board failed: %#v", boardResp)
+	}
+	boardText := boardResp.Payload["text"].(string)
+	if !strings.Contains(boardText, "Overlap:") || !strings.Contains(boardText, "shared.go") {
+		t.Fatalf("expected overlap in board output:\n%s", boardText)
+	}
+
+	// Summary should show overlap for session A
+	summaryResp := d.Handle(protocol.Request{Type: protocol.RequestGetSummary, Payload: envA}, func() {})
+	if !summaryResp.OK {
+		t.Fatalf("summary failed: %#v", summaryResp)
+	}
+	summaryText := summaryResp.Payload["text"].(string)
+	if !strings.Contains(summaryText, "Overlap:") || !strings.Contains(summaryText, "shared.go") {
+		t.Fatalf("expected overlap in summary output:\n%s", summaryText)
+	}
+	// Overlap section should only contain shared.go, not solo.go
+	overlapIdx := strings.Index(summaryText, "Overlap:")
+	overlapSection := summaryText[overlapIdx:]
+	// Overlap section ends at next major section ("Other sessions:")
+	if endIdx := strings.Index(overlapSection, "Other sessions:"); endIdx > 0 {
+		overlapSection = overlapSection[:endIdx]
+	}
+	if strings.Contains(overlapSection, "solo.go") {
+		t.Fatalf("solo.go should not appear in overlap section:\n%s", overlapSection)
 	}
 }
 
