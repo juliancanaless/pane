@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ sessions, and adds guardrails at high-risk moments.
 
 Usage:
   pane daemon start                 Start the local Pane shared-memory daemon
+  pane daemon status                Show daemon process, socket, DB, and log paths
 
   pane init                         Register or resume this terminal pane as a Pane session
   pane heartbeat                    Quietly refresh this pane session's cwd/branch/last-seen state
@@ -53,6 +55,8 @@ Session and board commands require the daemon to be running.
 Environment overrides:
   PANE_DB_PATH                      Use a custom SQLite database path
   PANE_SOCKET_PATH                  Use a custom daemon socket path
+  PANE_PID_PATH                     Use a custom daemon PID file path
+  PANE_LOG_PATH or PANE_LOG         Use a custom daemon log path
 `
 
 func Run(args []string, stdout, stderr io.Writer) error {
@@ -101,7 +105,7 @@ func Run(args []string, stdout, stderr io.Writer) error {
 
 func runDaemon(args []string, stdout io.Writer) error {
 	if len(args) != 1 {
-		return errors.New("usage: pane daemon start|stop|health")
+		return errors.New("usage: pane daemon start|stop|health|status")
 	}
 	socket, err := socketPath()
 	if err != nil {
@@ -111,23 +115,38 @@ func runDaemon(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	pid, err := pidPath()
+	if err != nil {
+		return err
+	}
+	log, err := logPath()
+	if err != nil {
+		return err
+	}
+	client := daemon.Client{SocketPath: socket}
 
 	switch args[0] {
 	case "start":
+		if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
+			_, _ = fmt.Fprintf(stdout, "daemon already running\npid: %v\nsocket: %s\ndb: %s\nlog: %s\n", response.Payload["pid"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["log_path"])
+			return nil
+		}
 		_, _ = fmt.Fprintf(stdout, "daemon starting on %s\n", socket)
-		return daemon.New(daemon.Config{SocketPath: socket, DBPath: db}).Run(context.Background())
+		return daemon.New(daemon.Config{SocketPath: socket, DBPath: db, PIDPath: pid, LogPath: log}).Run(context.Background())
 	case "health":
-		response, err := daemon.Client{SocketPath: socket}.Send(protocol.Request{Type: protocol.RequestDaemonHealth})
+		response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth})
 		if err != nil {
 			return err
 		}
 		if !response.OK {
 			return errors.New(response.Error)
 		}
-		_, _ = fmt.Fprintf(stdout, "daemon: %s\nuptime_ms: %.0f\nsocket: %s\n", response.Payload["status"], response.Payload["uptime_ms"], response.Payload["socket_path"])
+		_, _ = fmt.Fprintf(stdout, "daemon: %s\npid: %v\nuptime_ms: %v\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", response.Payload["status"], response.Payload["pid"], response.Payload["uptime_ms"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["pid_path"], response.Payload["log_path"])
 		return nil
+	case "status":
+		return runDaemonStatus(stdout, client, socket, db, pid, log)
 	case "stop":
-		response, err := daemon.Client{SocketPath: socket}.Send(protocol.Request{Type: protocol.RequestDaemonStop})
+		response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonStop})
 		if err != nil {
 			return err
 		}
@@ -137,8 +156,21 @@ func runDaemon(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "daemon: %s\n", response.Payload["status"])
 		return nil
 	default:
-		return errors.New("usage: pane daemon start|stop|health")
+		return errors.New("usage: pane daemon start|stop|health|status")
 	}
+}
+
+func runDaemonStatus(stdout io.Writer, client daemon.Client, socket, db, pid, log string) error {
+	response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth})
+	if err == nil && response.OK {
+		_, _ = fmt.Fprintf(stdout, "daemon: running\npid: %v\nuptime_ms: %v\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", response.Payload["pid"], response.Payload["uptime_ms"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["pid_path"], response.Payload["log_path"])
+		return nil
+	}
+	_, _ = fmt.Fprintf(stdout, "daemon: stopped\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", socket, db, pid, log)
+	if contents, readErr := os.ReadFile(pid); readErr == nil {
+		_, _ = fmt.Fprintf(stdout, "stale_pid_file: %s", string(contents))
+	}
+	return nil
 }
 
 func runSessionCommand(name string, args []string, stdout io.Writer) error {

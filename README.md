@@ -114,11 +114,11 @@ This repository currently contains the early Go scaffold and first working slice
 - first-pass sequential continuity with `pane continue` and `pane history`
 - first-pass generic agent state with `pane state set|get|list|delete`
 - first-pass `pane git` passthrough, preflight, and event recording
-- Unix socket daemon foundation
+- Unix socket daemon foundation with first-pass PID/status lifecycle metadata
 - protocol codec and request types
 - initial tests
 
-The next major work is daemon lifecycle hardening, overlap detection, targeting ergonomics, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is overlap detection, session targeting ergonomics, deeper daemon lifecycle hardening, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 
@@ -140,6 +140,7 @@ make test
 make build
 ./bin/pane help
 ./bin/pane daemon start
+./bin/pane daemon status
 ```
 
 ## Shell integration

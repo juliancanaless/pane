@@ -36,7 +36,7 @@ Single binary entry point.
 
 It exposes commands such as:
 
-- `pane daemon start|health|stop`
+- `pane daemon start|status|health|stop`
 - `pane init`
 - `pane heartbeat`
 - `pane status`
@@ -78,7 +78,7 @@ The CLI and daemon communicate over a Unix socket using:
 
 Current request families:
 
-- daemon health/stop
+- daemon health/status/stop
 - session init/heartbeat/status/intent/continue/history
 - board/summary
 - message send/list/reply
@@ -92,6 +92,7 @@ The daemon is the local long-running coordinator.
 Responsibilities:
 
 - open SQLite once
+- publish first-pass lifecycle metadata through health/status: pid, socket, DB, PID file, and log path
 - own session manager and message store
 - handle CLI requests
 - generate board and summary views
@@ -253,6 +254,7 @@ CLI detects current session
 9. Sequential continuity — first pass done
 10. Generic agent state — first pass done
 11. Heartbeat hardening — first pass done
+12. Daemon lifecycle hardening — first pass done
 
 ## V2/V3 direction from the reframe
 

@@ -25,6 +25,8 @@ import (
 type Config struct {
 	SocketPath string
 	DBPath     string
+	PIDPath    string
+	LogPath    string
 }
 
 type Daemon struct {
@@ -73,9 +75,14 @@ func (d *Daemon) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := d.writePIDFile(); err != nil {
+		_ = listener.Close()
+		return err
+	}
 	defer func() {
 		_ = listener.Close()
 		_ = os.Remove(d.config.SocketPath)
+		d.removePIDFile()
 	}()
 
 	stop := make(chan struct{})
@@ -108,6 +115,22 @@ func (d *Daemon) Run(ctx context.Context) error {
 	}
 }
 
+func (d *Daemon) writePIDFile() error {
+	if d.config.PIDPath == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(d.config.PIDPath), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(d.config.PIDPath, []byte(fmt.Sprintf("%d\n", os.Getpid())), 0o644)
+}
+
+func (d *Daemon) removePIDFile() {
+	if d.config.PIDPath != "" {
+		_ = os.Remove(d.config.PIDPath)
+	}
+}
+
 func (d *Daemon) handleConn(conn net.Conn, requestStop func()) {
 	defer conn.Close()
 
@@ -125,8 +148,12 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 	case protocol.RequestDaemonHealth:
 		return protocol.Success(map[string]any{
 			"status":      "ok",
+			"pid":         os.Getpid(),
 			"uptime_ms":   time.Since(d.started).Milliseconds(),
 			"socket_path": d.config.SocketPath,
+			"db_path":     d.config.DBPath,
+			"pid_path":    d.config.PIDPath,
+			"log_path":    d.config.LogPath,
 		})
 	case protocol.RequestDaemonStop:
 		requestStop()

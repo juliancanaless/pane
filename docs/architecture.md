@@ -89,6 +89,8 @@ Every request from a CLI subcommand to the daemon includes a `session_id` (or en
 
 | Request | Purpose |
 |---|---|
+| `DaemonHealth` | Return daemon health and lifecycle metadata: pid, uptime, socket, DB, PID file, log path |
+| `DaemonStop` | Ask the daemon to stop cleanly |
 | `SessionInit` | Register or resume a session for this pane/TTY/workspace |
 | `SessionHeartbeat` | Update last_seen, cwd, branch, tty, and active status without changing intent |
 | `SessionClose` | Mark session inactive |

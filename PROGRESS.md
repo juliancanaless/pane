@@ -27,10 +27,13 @@ Also smoke-tested locally with temporary database/socket paths.
 ### Daemon
 
 - `pane daemon start`
+- `pane daemon status`
 - `pane daemon health`
 - `pane daemon stop`
 - Unix socket request/response protocol
 - SQLite opened once by the daemon
+- PID file written while daemon runs
+- duplicate foreground starts become clear no-ops when daemon is healthy
 
 ### Sessions
 
@@ -100,7 +103,7 @@ These are important but not implemented yet:
 
 - file working-set overlap detection
 - daemon auto-start outside shell hook
-- PID/lock/log lifecycle
+- full daemon lock/log lifecycle beyond first-pass PID/status
 - platform-native file watcher
 - richer session lineage beyond first parent links
 - richer `pane history` filters and summaries
@@ -380,7 +383,7 @@ Still needed:
 
 ### Phase 11 — daemon lifecycle hardening
 
-Status: next recommended phase.
+Status: first pass implemented.
 
 Goal:
 
@@ -390,19 +393,43 @@ Use case:
 
 Agents should be able to rely on Pane memory being available without the human remembering which terminal is running the daemon, whether an old socket is stale, or where logs went.
 
-Candidate tasks:
+Completed:
 
-1. PID file and stale-process detection.
-2. Locking so two daemons do not fight over the same DB/socket.
-3. Log file lifecycle and clearer `pane daemon status` output.
-4. Safer startup when a stale socket exists.
-5. Consider `pane daemon start --background` or CLI auto-start policy beyond shell hook.
+1. Added first-pass daemon PID file support.
+2. Added `pane daemon status` showing running/stopped state plus pid, socket, DB, PID file, and log paths.
+3. Extended daemon health payload with pid/path metadata.
+4. Made duplicate `pane daemon start` calls a clear no-op when an existing daemon is healthy.
+5. Smoke-tested stopped/running/status/start-again/stop with temp DB/socket/PID/log paths.
+
+Still needed:
+
+- process locking so two daemons do not fight over the same DB/socket in edge cases
+- stronger stale PID/process detection
+- actual log redirection/lifecycle beyond exposing the configured log path
+- safer startup behavior around stale sockets beyond current remove-and-listen behavior
+- consider `pane daemon start --background` or CLI auto-start policy beyond shell hook
 
 Exit criteria:
 
-- users can tell whether the daemon is running, where it is logging, and which DB/socket it owns
-- stale sockets/PIDs do not confuse normal startup
-- duplicate daemon starts fail clearly or become no-ops
+- users can tell whether the daemon is running, where it is logging, and which DB/socket it owns — first pass done
+- duplicate daemon starts fail clearly or become no-ops — first pass done
+- stale sockets/PIDs do not confuse normal startup — still needs hardening
+
+### Phase 12 — overlap and targeting ergonomics
+
+Status: next recommended phase.
+
+Goal:
+
+Make Pane easier to use during real multi-agent work by reducing long-ID friction and surfacing overlap more directly.
+
+Candidate tasks:
+
+1. Short session IDs or aliases for `pane ask`, `pane continue`, and board output.
+2. Validate/warn on messages sent to nonexistent sessions.
+3. Derive working-set overlap from recent file activity.
+4. Surface overlap warnings in board/summary and git preflight.
+5. Dogfood whether board stays readable with overlap indicators.
 
 ## Testing plan
 

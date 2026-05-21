@@ -29,6 +29,10 @@ func DefaultLogPath(home string) string {
 	return filepath.Join(home, DefaultDirName, "logs", "pane.log")
 }
 
+func DefaultPIDPath(home string) string {
+	return filepath.Join(home, DefaultDirName, "pane.pid")
+}
+
 func Open(path string) (*sql.DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err

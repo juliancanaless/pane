@@ -22,6 +22,31 @@ func sendDaemonRequest(request protocol.Request) (protocol.Response, error) {
 	return response, nil
 }
 
+func logPath() (string, error) {
+	if value := os.Getenv("PANE_LOG_PATH"); value != "" {
+		return value, nil
+	}
+	if value := os.Getenv("PANE_LOG"); value != "" {
+		return value, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return store.DefaultLogPath(home), nil
+}
+
+func pidPath() (string, error) {
+	if value := os.Getenv("PANE_PID_PATH"); value != "" {
+		return value, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return store.DefaultPIDPath(home), nil
+}
+
 func databasePath() (string, error) {
 	if value := os.Getenv("PANE_DB_PATH"); value != "" {
 		return value, nil
