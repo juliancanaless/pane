@@ -81,7 +81,7 @@ pane history --since 24h
 pane continue <session-id>
 pane intent "working on auth middleware"
 pane inbox
-pane ask <session-id> "are you still touching auth/session.ts?"
+pane ask <session-id-or-short-id> "are you still touching auth/session.ts?"
 pane reply <message-id> "done with that file"
 pane state set agent.notes '{"handoff":"tests need review"}'
 pane state get agent.notes
@@ -107,7 +107,7 @@ This repository currently contains the early Go scaffold and first working slice
 - SQLite persistence foundation
 - pane/TTY session identity
 - daemon-backed `pane init`, `pane heartbeat`, `pane status`, and `pane intent`
-- daemon-backed `pane board` with active session visibility and coordination indicators
+- daemon-backed `pane board` with active session visibility, short session IDs, and coordination indicators
 - daemon-backed `pane summary` with session-specific startup context, unread messages, recent files, and continuity history
 - daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
 - first-pass daemon-observed file activity
@@ -118,7 +118,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The next major work is overlap detection, session targeting ergonomics, deeper daemon lifecycle hardening, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The next major work is overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 

@@ -19,7 +19,11 @@ func Render(value Board, now time.Time) string {
 	}
 
 	for _, item := range value.Sessions {
-		fmt.Fprintf(&out, "\n%s — %s", item.ID, item.Status)
+		fmt.Fprintf(&out, "\n%s", item.ID)
+		if item.ShortID != "" && item.ShortID != item.ID {
+			fmt.Fprintf(&out, " (short: %s)", item.ShortID)
+		}
+		fmt.Fprintf(&out, " — %s", item.Status)
 		if item.Branch != "" {
 			fmt.Fprintf(&out, " — %s", item.Branch)
 		}

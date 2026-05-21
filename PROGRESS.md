@@ -108,7 +108,7 @@ These are important but not implemented yet:
 - richer session lineage beyond first parent links
 - richer `pane history` filters and summaries
 - richer generic `pane state` workflows beyond first-pass key/value JSON
-- short aliases or better targeting for long session IDs
+- richer aliases/names beyond first-pass short session IDs
 
 ## Product interpretation to preserve
 
@@ -415,21 +415,44 @@ Exit criteria:
 - duplicate daemon starts fail clearly or become no-ops — first pass done
 - stale sockets/PIDs do not confuse normal startup — still needs hardening
 
-### Phase 12 — overlap and targeting ergonomics
+### Phase 12 — targeting ergonomics and overlap
 
-Status: next recommended phase.
+Status: first pass implemented for targeting; overlap still pending.
 
 Goal:
 
 Make Pane easier to use during real multi-agent work by reducing long-ID friction and surfacing overlap more directly.
 
+Completed:
+
+1. Added short session IDs in board output.
+2. Added short-ID/prefix resolution for session references.
+3. `pane ask` can target a session by short ID/prefix.
+4. `pane continue` can continue from a session by short ID/prefix.
+5. `pane ask` now fails clearly when the target session does not exist instead of queuing to an invalid ID.
+
+Still needed:
+
+- derive working-set overlap from recent file activity
+- surface overlap warnings in board/summary and git preflight
+- richer aliases or human-friendly names if short IDs are still awkward
+- dogfood whether board stays readable with short-ID indicators
+
+### Phase 13 — overlap detection
+
+Status: next recommended phase.
+
+Goal:
+
+Surface when sessions are touching the same files/directories so agents can coordinate before conflicting work accumulates.
+
 Candidate tasks:
 
-1. Short session IDs or aliases for `pane ask`, `pane continue`, and board output.
-2. Validate/warn on messages sent to nonexistent sessions.
-3. Derive working-set overlap from recent file activity.
-4. Surface overlap warnings in board/summary and git preflight.
-5. Dogfood whether board stays readable with overlap indicators.
+1. Derive overlap from recent file activity by session.
+2. Add compact overlap indicators to board.
+3. Include current-session overlap in summary.
+4. Feed overlap into git preflight warnings for risky operations.
+5. Tune noise thresholds through dogfooding.
 
 ## Testing plan
 

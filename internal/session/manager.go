@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -144,6 +146,39 @@ func (m Manager) Continue(ctx context.Context, input InitInput, parentID string)
 
 func (m Manager) SetIntent(ctx context.Context, sessionID, intent string) error {
 	return m.store.UpdateIntent(ctx, sessionID, intent, m.now().Unix())
+}
+
+var ErrAmbiguous = errors.New("ambiguous session reference")
+
+func (m Manager) Resolve(ctx context.Context, workspaceRoot, reference string) (Session, error) {
+	reference = strings.TrimSpace(reference)
+	if reference == "" {
+		return Session{}, ErrNotFound
+	}
+	if exact, err := m.store.FindByID(ctx, reference); err == nil && exact.WorkspaceRoot == workspaceRoot {
+		return exact, nil
+	}
+	items, err := m.store.ListRecentByWorkspace(ctx, workspaceRoot, 100)
+	if err != nil {
+		return Session{}, err
+	}
+	matches := make([]Session, 0, 1)
+	for _, item := range items {
+		if matchesSessionReference(item.ID, reference) {
+			matches = append(matches, item)
+		}
+	}
+	if len(matches) == 0 {
+		return Session{}, ErrNotFound
+	}
+	if len(matches) > 1 {
+		return Session{}, fmt.Errorf("%w: %q matches %d sessions", ErrAmbiguous, reference, len(matches))
+	}
+	return matches[0], nil
+}
+
+func matchesSessionReference(sessionID, reference string) bool {
+	return strings.HasPrefix(sessionID, reference) || strings.HasPrefix(ShortID(sessionID), reference) || strings.HasPrefix(strings.TrimPrefix(sessionID, "session-"), strings.TrimPrefix(reference, "session-"))
 }
 
 func newID() string {

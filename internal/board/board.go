@@ -9,6 +9,7 @@ type Board struct {
 
 type Session struct {
 	ID              string
+	ShortID         string
 	Status          session.Status
 	Branch          string
 	CWD             string
@@ -34,6 +35,7 @@ func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, mes
 		activity := activityStats[value.ID]
 		items = append(items, Session{
 			ID:              value.ID,
+			ShortID:         session.ShortID(value.ID),
 			Status:          value.Status,
 			Branch:          value.Branch,
 			CWD:             value.CWD,

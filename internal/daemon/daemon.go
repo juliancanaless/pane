@@ -252,10 +252,17 @@ func (d *Daemon) handleSessionContinue(request protocol.Request) protocol.Respon
 		CWD:           payloadString(request, "cwd"),
 		Branch:        payloadString(request, "branch"),
 	}
-	result, err := d.manager.Continue(context.Background(), input, payloadString(request, "parent_session_id"))
+	parent, err := d.manager.Resolve(context.Background(), input.WorkspaceRoot, payloadString(request, "parent_session_id"))
 	if errors.Is(err, session.ErrNotFound) {
 		return protocol.Failure("session to continue was not found")
 	}
+	if errors.Is(err, session.ErrAmbiguous) {
+		return protocol.Failure(err.Error())
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	result, err := d.manager.Continue(context.Background(), input, parent.ID)
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
@@ -447,16 +454,27 @@ func (d *Daemon) handleMessageSend(request protocol.Request) protocol.Response {
 	if body == "" {
 		return protocol.Failure("message body cannot be empty")
 	}
+	targetRef := payloadString(request, "to_session")
+	if targetRef == "" {
+		return protocol.Failure("target session cannot be empty")
+	}
+	target, err := d.manager.Resolve(context.Background(), current.WorkspaceRoot, targetRef)
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Failure("target session not found")
+	}
+	if errors.Is(err, session.ErrAmbiguous) {
+		return protocol.Failure(err.Error())
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
 	message := messages.Message{
 		ID:          messages.NewID(),
 		FromSession: current.ID,
-		ToSession:   payloadString(request, "to_session"),
+		ToSession:   target.ID,
 		Body:        body,
 		State:       messages.StateQueued,
 		CreatedAt:   time.Now().Unix(),
-	}
-	if message.ToSession == "" {
-		return protocol.Failure("target session cannot be empty")
 	}
 	message.ThreadID = message.ID
 	if err := d.messageStore.Save(context.Background(), message); err != nil {

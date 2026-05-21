@@ -150,7 +150,7 @@ It answers:
 
 Current board data:
 
-- session id
+- session id and short id
 - status
 - branch
 - cwd
@@ -255,6 +255,7 @@ CLI detects current session
 10. Generic agent state — first pass done
 11. Heartbeat hardening — first pass done
 12. Daemon lifecycle hardening — first pass done
+13. Targeting ergonomics — first pass done
 
 ## V2/V3 direction from the reframe
 

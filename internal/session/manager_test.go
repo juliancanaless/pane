@@ -12,6 +12,7 @@ type fakeStore struct {
 	resumable Session
 	status    Session
 	byID      Session
+	recent    []Session
 	findErr   error
 }
 
@@ -49,6 +50,9 @@ func (f *fakeStore) ListActiveByWorkspace(context.Context, string) ([]Session, e
 }
 
 func (f *fakeStore) ListRecentByWorkspace(context.Context, string, int) ([]Session, error) {
+	if f.recent != nil {
+		return f.recent, nil
+	}
 	return []Session{f.status}, nil
 }
 
@@ -133,6 +137,29 @@ func TestManagerHeartbeatRefreshesExistingSession(t *testing.T) {
 	}
 	if result.Session.CWD != "/repo/subdir" || result.Session.Branch != "feature" || result.Session.Status != StatusActive {
 		t.Fatalf("unexpected refreshed session: %#v", result.Session)
+	}
+}
+
+func TestManagerResolveMatchesShortID(t *testing.T) {
+	store := &fakeStore{recent: []Session{{ID: "session-abcdef1234567890", WorkspaceRoot: "/repo"}}}
+	manager := NewManager(store)
+
+	result, err := manager.Resolve(context.Background(), "/repo", "abcdef12")
+	if err != nil {
+		t.Fatalf("Resolve returned error: %v", err)
+	}
+	if result.ID != "session-abcdef1234567890" {
+		t.Fatalf("session id = %q", result.ID)
+	}
+}
+
+func TestManagerResolveReturnsAmbiguousForSharedPrefix(t *testing.T) {
+	store := &fakeStore{recent: []Session{{ID: "session-abcdef1234567890", WorkspaceRoot: "/repo"}, {ID: "session-abcdef9999999999", WorkspaceRoot: "/repo"}}}
+	manager := NewManager(store)
+
+	_, err := manager.Resolve(context.Background(), "/repo", "abc")
+	if !errors.Is(err, ErrAmbiguous) {
+		t.Fatalf("Resolve error = %v", err)
 	}
 }
 

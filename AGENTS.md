@@ -18,7 +18,7 @@ At the beginning of work, run:
 If you are taking over from a known prior session, link the handoff before proceeding:
 
 ```bash
-./bin/pane continue <session-id>
+./bin/pane continue <session-id-or-short-id>
 ./bin/pane summary
 ```
 
@@ -57,7 +57,7 @@ Check shared state before acting in an area another session may be touching:
 Ask other sessions directly instead of routing through the human:
 
 ```bash
-./bin/pane ask <session-id> "question"
+./bin/pane ask <session-id-or-short-id> "question"
 ./bin/pane inbox
 ./bin/pane reply <message-id> "answer"
 ```

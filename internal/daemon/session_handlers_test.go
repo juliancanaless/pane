@@ -34,6 +34,7 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	if initResponse.Payload["session_id"] == "" {
 		t.Fatalf("missing session id: %#v", initResponse.Payload)
 	}
+	sessionID := initResponse.Payload["session_id"].(string)
 
 	intentPayload := map[string]any{
 		"pane_id":        "tty:/dev/ttys001",
@@ -73,7 +74,7 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 		t.Fatalf("board failed: %#v", boardResponse)
 	}
 	text, ok := boardResponse.Payload["text"].(string)
-	if !ok || !strings.Contains(text, "testing daemon-backed board") {
+	if !ok || !strings.Contains(text, "short: "+session.ShortID(sessionID)) || !strings.Contains(text, "testing daemon-backed board") {
 		t.Fatalf("unexpected board text: %#v", boardResponse.Payload)
 	}
 
@@ -106,7 +107,12 @@ func TestMessageHandlers(t *testing.T) {
 	sessionA := initA.Payload["session_id"].(string)
 	sessionB := initB.Payload["session_id"].(string)
 
-	send := d.Handle(protocol.Request{Type: protocol.RequestMessageSend, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "to_session": sessionB, "body": "Are you done?"}}, func() {})
+	sendMissing := d.Handle(protocol.Request{Type: protocol.RequestMessageSend, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "to_session": "missing", "body": "Are you done?"}}, func() {})
+	if sendMissing.OK || !strings.Contains(sendMissing.Error, "not found") {
+		t.Fatalf("expected missing target failure: %#v", sendMissing)
+	}
+
+	send := d.Handle(protocol.Request{Type: protocol.RequestMessageSend, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "to_session": session.ShortID(sessionB), "body": "Are you done?"}}, func() {})
 	if !send.OK {
 		t.Fatalf("send failed: %#v", send)
 	}
