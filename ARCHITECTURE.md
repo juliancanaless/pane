@@ -16,6 +16,8 @@ SQLite-backed shared memory
 
 The daemon is the source of truth. The CLI should stay thin: detect local context, send a request, print the daemon's response.
 
+`V1_READY.md` defines the bar for Pane being good enough to use as daily agent infrastructure.
+
 ## Product model
 
 Pane is not primarily a git tool, a dashboard, or an orchestrator. The concrete workflows Pane is meant to solve are documented in `USE_CASES.md`.

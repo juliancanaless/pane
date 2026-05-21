@@ -97,6 +97,18 @@ Also smoke-tested locally with temporary database/socket paths.
 - `pane shims install`
 - `pane git <args...>` real passthrough with first-pass preflight and event recording
 
+## V1 ready target
+
+`V1_READY.md` defines the point where Pane is good enough to just use for daily dogfooding.
+
+The short version: agents should be able to read `AGENTS.md`, run Pane commands without human babysitting, trust the board as the active coordination surface, recover startup context, message peers, use git guardrails, and inspect daemon health.
+
+Current blocker to V1 ready:
+
+- session lifecycle cleanup / board freshness
+
+Right now Pane remembers sessions durably, but does not retire stale sessions cleanly. This can make the board show more sessions than the user currently has open.
+
 ## What is not real yet
 
 These are important but not implemented yet:
@@ -441,7 +453,7 @@ Still needed:
 
 ### Phase 13 — session lifecycle cleanup / board freshness
 
-Status: next recommended phase.
+Status: next recommended phase and current V1-ready blocker.
 
 Goal:
 

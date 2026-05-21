@@ -97,6 +97,7 @@ Agents should update `pane intent` whenever they switch tasks. The board is only
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture and design rules
 - [`PROGRESS.md`](PROGRESS.md) — committed phase plan, current status, and testing/dogfooding checklist
 - [`USE_CASES.md`](USE_CASES.md) — concrete problems and workflows Pane is meant to solve
+- [`V1_READY.md`](V1_READY.md) — definition of "good enough to just use" and the current blocker
 - [`REFRAMING.md`](REFRAMING.md) — long-term reframe from coordination tool to environment-as-product
 - [`docs/architecture.md`](docs/architecture.md) — detailed V1 technical architecture
 - [`docs/80-20-overview.md`](docs/80-20-overview.md) — V1 product scope
@@ -120,7 +121,7 @@ This repository currently contains the early Go scaffold and first working slice
 - protocol codec and request types
 - initial tests
 
-The next major work is session lifecycle cleanup/board freshness, overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality through dogfooding. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
+The current path to "good enough to just use" is defined in [`V1_READY.md`](V1_READY.md). The immediate blocker is session lifecycle cleanup/board freshness; after that, the focus shifts to overlap detection, richer aliases, deeper daemon lifecycle hardening, and board/summary signal quality. See [`PROGRESS.md`](PROGRESS.md) for the current phase plan.
 
 ## Project shape
 
