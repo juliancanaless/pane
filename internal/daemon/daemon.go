@@ -478,9 +478,13 @@ func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string) []boa
 	}
 	result := make([]board.GitEventInfo, 0, len(events))
 	for _, e := range events {
+		cmd := e.Subcommand
+		if cmd == "" {
+			cmd = e.Command
+		}
 		result = append(result, board.GitEventInfo{
 			SessionShortID: session.ShortID(e.SessionID),
-			Command:        e.Command,
+			Command:        cmd,
 			Timestamp:      e.Timestamp,
 		})
 	}

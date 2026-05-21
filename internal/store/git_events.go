@@ -34,7 +34,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 
 func (s GitEventStore) RecentByBranch(ctx context.Context, branch string, since int64, limit int) ([]GitEvent, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, session_id, command, subcommand, branch, target_branch, timestamp, result
+SELECT id, session_id, command, subcommand, branch, COALESCE(target_branch, ''), timestamp, COALESCE(result, '')
 FROM git_events
 WHERE branch = ?
   AND timestamp >= ?
@@ -62,7 +62,7 @@ LIMIT ?
 
 func (s GitEventStore) RecentByWorkspace(ctx context.Context, workspaceRoot string, since int64, limit int) ([]GitEvent, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT ge.id, ge.session_id, ge.command, ge.subcommand, ge.branch, ge.target_branch, ge.timestamp, ge.result
+SELECT ge.id, ge.session_id, ge.command, ge.subcommand, ge.branch, COALESCE(ge.target_branch, ''), ge.timestamp, COALESCE(ge.result, '')
 FROM git_events ge
 JOIN sessions s ON s.session_id = ge.session_id
 WHERE s.workspace_root = ?
