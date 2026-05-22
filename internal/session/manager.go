@@ -21,6 +21,8 @@ type Store interface {
 	FindByName(context.Context, string, string) (Session, error)
 	ListActiveByWorkspace(context.Context, string) ([]Session, error)
 	ListRecentByWorkspace(context.Context, string, int) ([]Session, error)
+	ListActiveByRepo(context.Context, string) ([]Session, error)
+	ListRecentByRepo(context.Context, string, int) ([]Session, error)
 	UpdateIntent(context.Context, string, string, int64) error
 	UpdateStatus(context.Context, string, Status, int64) error
 	UpdateName(context.Context, string, string) error
@@ -38,6 +40,8 @@ type InitInput struct {
 	WorkspaceRoot string
 	CWD           string
 	Branch        string
+	RepoID        string
+	GitCommonDir  string
 }
 
 type InitResult struct {
@@ -57,6 +61,8 @@ func (m Manager) Init(ctx context.Context, input InitInput) (InitResult, error) 
 		current.TTY = input.TTY
 		current.CWD = input.CWD
 		current.Branch = input.Branch
+		current.RepoID = input.RepoID
+		current.GitCommonDir = input.GitCommonDir
 		current.LastSeenAt = now
 		current.Status = StatusActive
 		return InitResult{Session: current, Resumed: true}, m.store.Save(ctx, current)
@@ -72,6 +78,8 @@ func (m Manager) Init(ctx context.Context, input InitInput) (InitResult, error) 
 		WorkspaceRoot: input.WorkspaceRoot,
 		CWD:           input.CWD,
 		Branch:        input.Branch,
+		RepoID:        input.RepoID,
+		GitCommonDir:  input.GitCommonDir,
 		StartedAt:     now,
 		LastSeenAt:    now,
 		Status:        StatusActive,
@@ -95,6 +103,8 @@ func (m Manager) Heartbeat(ctx context.Context, input InitInput) (InitResult, er
 	current.TTY = input.TTY
 	current.CWD = input.CWD
 	current.Branch = input.Branch
+	current.RepoID = input.RepoID
+	current.GitCommonDir = input.GitCommonDir
 	current.LastSeenAt = now
 	current.Status = StatusActive
 	return InitResult{Session: current, Resumed: true}, m.store.Save(ctx, current)
@@ -112,6 +122,18 @@ func (m Manager) ListRecent(ctx context.Context, workspaceRoot string, limit int
 	return m.store.ListRecentByWorkspace(ctx, workspaceRoot, limit)
 }
 
+func (m Manager) ListActiveByRepo(ctx context.Context, repoID string) ([]Session, error) {
+	items, err := m.store.ListActiveByRepo(ctx, repoID)
+	if err != nil {
+		return nil, err
+	}
+	return filterFresh(items, m.now().Add(-StaleAfter).Unix()), nil
+}
+
+func (m Manager) ListRecentByRepo(ctx context.Context, repoID string, limit int) ([]Session, error) {
+	return m.store.ListRecentByRepo(ctx, repoID, limit)
+}
+
 func (m Manager) Continue(ctx context.Context, input InitInput, parentID string) (InitResult, error) {
 	parent, err := m.store.FindByID(ctx, parentID)
 	if err != nil {
@@ -127,6 +149,8 @@ func (m Manager) Continue(ctx context.Context, input InitInput, parentID string)
 		current.TTY = input.TTY
 		current.CWD = input.CWD
 		current.Branch = input.Branch
+		current.RepoID = input.RepoID
+		current.GitCommonDir = input.GitCommonDir
 		current.LastIntent = parent.LastIntent
 		current.LastSeenAt = now
 		current.Status = StatusActive
@@ -144,6 +168,8 @@ func (m Manager) Continue(ctx context.Context, input InitInput, parentID string)
 		WorkspaceRoot: input.WorkspaceRoot,
 		CWD:           input.CWD,
 		Branch:        input.Branch,
+		RepoID:        input.RepoID,
+		GitCommonDir:  input.GitCommonDir,
 		LastIntent:    parent.LastIntent,
 		StartedAt:     now,
 		LastSeenAt:    now,

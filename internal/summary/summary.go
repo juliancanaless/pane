@@ -47,6 +47,7 @@ type SessionLine struct {
 	Status     session.Status
 	Branch     string
 	CWD        string
+	RepoID     string
 	LastIntent string
 	LastSeenAt int64
 	ParentID   string
@@ -95,6 +96,7 @@ func fromSession(value session.Session) SessionLine {
 		Status:     value.Status,
 		Branch:     value.Branch,
 		CWD:        value.CWD,
+		RepoID:     value.RepoID,
 		LastIntent: value.LastIntent,
 		LastSeenAt: value.LastSeenAt,
 		ParentID:   value.ParentID,

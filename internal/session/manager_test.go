@@ -59,6 +59,14 @@ func (f *fakeStore) ListRecentByWorkspace(context.Context, string, int) ([]Sessi
 	return []Session{f.status}, nil
 }
 
+func (f *fakeStore) ListActiveByRepo(context.Context, string) ([]Session, error) {
+	return f.ListActiveByWorkspace(context.Background(), "")
+}
+
+func (f *fakeStore) ListRecentByRepo(context.Context, string, int) ([]Session, error) {
+	return f.ListRecentByWorkspace(context.Background(), "", 0)
+}
+
 func (f *fakeStore) UpdateIntent(context.Context, string, string, int64) error {
 	return nil
 }

@@ -33,10 +33,11 @@ Usage:
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
   pane name <name>                  Give this session a human-friendly name for targeting
-  pane board [--all]                Show the workspace shared awareness board
+  pane board [--all] [--repo]       Show the workspace or same-repository awareness board
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
-  pane history [--since <duration>] Show recent sessions for this workspace
+  pane history [--since <duration>] [--repo]
+                                    Show recent sessions for this workspace or repository
   pane sessions prune              Close stale active/idle sessions in this workspace
 
   pane shell-init                   Print shell hook for daemon start + session heartbeat
@@ -299,11 +300,15 @@ func runSessions(args []string, stdout io.Writer) error {
 
 func runBoard(args []string, stdout io.Writer) error {
 	showAll := false
+	repoScope := false
 	for _, arg := range args {
-		if arg == "--all" || arg == "-a" {
+		switch arg {
+		case "--all", "-a":
 			showAll = true
-		} else {
-			return errors.New("usage: pane board [--all]")
+		case "--repo":
+			repoScope = true
+		default:
+			return errors.New("usage: pane board [--all] [--repo]")
 		}
 	}
 	env, err := session.DetectEnvironment()
@@ -314,6 +319,9 @@ func runBoard(args []string, stdout io.Writer) error {
 	payload := protocol.BoardRequestPayload(env)
 	if showAll {
 		payload["show_all"] = true
+	}
+	if repoScope {
+		payload["scope"] = "repo"
 	}
 	response, err := sendDaemonRequest(protocol.Request{Type: reqType, Payload: payload})
 	if err != nil {
@@ -369,7 +377,7 @@ func runContinue(args []string, stdout io.Writer) error {
 }
 
 func runHistory(args []string, stdout io.Writer) error {
-	since, err := parseHistorySince(args)
+	since, repoScope, err := parseHistoryArgs(args)
 	if err != nil {
 		return err
 	}
@@ -377,7 +385,11 @@ func runHistory(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionHistory, Payload: protocol.HistoryRequestPayload(env, since)})
+	payload := protocol.HistoryRequestPayload(env, since)
+	if repoScope {
+		payload["scope"] = "repo"
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionHistory, Payload: payload})
 	if err != nil {
 		return err
 	}
@@ -388,18 +400,28 @@ func runHistory(args []string, stdout io.Writer) error {
 	return nil
 }
 
-func parseHistorySince(args []string) (int64, error) {
-	if len(args) == 0 {
-		return 0, nil
+func parseHistoryArgs(args []string) (int64, bool, error) {
+	var since int64
+	repoScope := false
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--repo":
+			repoScope = true
+		case "--since":
+			if i+1 >= len(args) {
+				return 0, false, errors.New("usage: pane history [--since <duration>] [--repo]")
+			}
+			duration, err := time.ParseDuration(args[i+1])
+			if err != nil {
+				return 0, false, fmt.Errorf("invalid --since duration: %w", err)
+			}
+			since = time.Now().Add(-duration).Unix()
+			i++
+		default:
+			return 0, false, errors.New("usage: pane history [--since <duration>] [--repo]")
+		}
 	}
-	if len(args) != 2 || args[0] != "--since" {
-		return 0, errors.New("usage: pane history [--since <duration>]")
-	}
-	duration, err := time.ParseDuration(args[1])
-	if err != nil {
-		return 0, fmt.Errorf("invalid --since duration: %w", err)
-	}
-	return time.Now().Add(-duration).Unix(), nil
+	return since, repoScope, nil
 }
 
 func runStatus(args []string, stdout io.Writer) error {
@@ -417,7 +439,7 @@ func runStatus(args []string, stdout io.Writer) error {
 	if !response.OK {
 		return errors.New(response.Error)
 	}
-	_, _ = fmt.Fprintf(stdout, "session: %s\nstatus: %s\nbranch: %s\nintent: %s\nworkspace: %s\n", payloadString(response, "session_id"), payloadString(response, "status"), payloadString(response, "branch"), payloadString(response, "intent"), payloadString(response, "workspace_root"))
+	_, _ = fmt.Fprintf(stdout, "session: %s\nstatus: %s\nbranch: %s\nintent: %s\nworkspace: %s\nrepo: %s\n", payloadString(response, "session_id"), payloadString(response, "status"), payloadString(response, "branch"), payloadString(response, "intent"), payloadString(response, "workspace_root"), payloadString(response, "repo_id"))
 	return nil
 }
 

@@ -11,6 +11,9 @@ func Render(value Board, now time.Time) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "[Pane] Workspace board\n")
 	fmt.Fprintf(&out, "Workspace: %s\n", value.WorkspaceRoot)
+	if value.Scope == "repo" && value.RepoID != "" {
+		fmt.Fprintf(&out, "Scope: repository (%s)\n", value.RepoID)
+	}
 	fmt.Fprintf(&out, "Sessions: %d\n", len(value.Sessions))
 
 	if len(value.Sessions) == 0 {
@@ -31,13 +34,20 @@ func Render(value Board, now time.Time) string {
 		}
 		fmt.Fprintf(&out, "\n")
 		fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(item.LastIntent))
-		fmt.Fprintf(&out, "  CWD: %s\n", displayPath(value.WorkspaceRoot, item.CWD))
+		workspaceRoot := value.WorkspaceRoot
+		if item.WorkspaceRoot != "" {
+			workspaceRoot = item.WorkspaceRoot
+		}
+		fmt.Fprintf(&out, "  CWD: %s\n", displayPath(workspaceRoot, item.CWD))
+		if value.Scope == "repo" && item.WorkspaceRoot != "" && item.WorkspaceRoot != value.WorkspaceRoot {
+			fmt.Fprintf(&out, "  Worktree: %s\n", item.WorkspaceRoot)
+		}
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
 		if len(item.RecentFiles) > 0 {
-			fmt.Fprintf(&out, "  Recent files: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, item.RecentFiles), ", "))
+			fmt.Fprintf(&out, "  Recent files: %s\n", strings.Join(displayPaths(workspaceRoot, item.RecentFiles), ", "))
 		}
 		if len(item.HotDirectories) > 0 {
-			fmt.Fprintf(&out, "  Hot dirs: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, item.HotDirectories), ", "))
+			fmt.Fprintf(&out, "  Hot dirs: %s\n", strings.Join(displayPaths(workspaceRoot, item.HotDirectories), ", "))
 		}
 		if len(item.ActivitySummaries) > 0 {
 			fmt.Fprintf(&out, "  Activity summary: %s\n", strings.Join(item.ActivitySummaries, "; "))

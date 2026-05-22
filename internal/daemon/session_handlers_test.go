@@ -139,6 +139,70 @@ func TestAttributeSessionsPrefersMostSpecificCWD(t *testing.T) {
 	}
 }
 
+func TestBoardRepoScopeShowsSiblingWorktrees(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/repo-main", "cwd": "/repo-main", "branch": "main", "repo_id": "/repo/.git", "git_common_dir": "/repo/.git"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/repo-feature", "cwd": "/repo-feature", "branch": "feature", "repo_id": "/repo/.git", "git_common_dir": "/repo/.git"}
+	if initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {}); !initA.OK {
+		t.Fatalf("init A failed: %#v", initA)
+	}
+	if initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {}); !initB.OK {
+		t.Fatalf("init B failed: %#v", initB)
+	}
+
+	workspaceBoard := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/repo-main", "repo_id": "/repo/.git"}}, func() {})
+	if !workspaceBoard.OK {
+		t.Fatalf("workspace board failed: %#v", workspaceBoard)
+	}
+	if !strings.Contains(workspaceBoard.Payload["text"].(string), "Sessions: 1") {
+		t.Fatalf("workspace board should stay worktree-local:\n%s", workspaceBoard.Payload["text"].(string))
+	}
+
+	repoBoard := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/repo-main", "repo_id": "/repo/.git", "scope": "repo"}}, func() {})
+	if !repoBoard.OK {
+		t.Fatalf("repo board failed: %#v", repoBoard)
+	}
+	text := repoBoard.Payload["text"].(string)
+	for _, want := range []string{"Scope: repository", "Sessions: 2", "Worktree: /repo-feature"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("repo board missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestGitPreflightWarnsAcrossSiblingWorktrees(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/repo-main", "cwd": "/repo-main", "branch": "main", "repo_id": "/repo/.git", "git_common_dir": "/repo/.git"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/repo-feature", "cwd": "/repo-feature", "branch": "main", "repo_id": "/repo/.git", "git_common_dir": "/repo/.git"}
+	if initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {}); !initA.OK {
+		t.Fatalf("init A failed: %#v", initA)
+	}
+	if initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {}); !initB.OK {
+		t.Fatalf("init B failed: %#v", initB)
+	}
+
+	preflight := d.Handle(protocol.Request{Type: protocol.RequestGitPreflight, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/repo-main", "args": []string{"rebase", "main"}}}, func() {})
+	if !preflight.OK {
+		t.Fatalf("preflight failed: %#v", preflight)
+	}
+	if len(preflight.Warnings) == 0 || !strings.Contains(strings.Join(preflight.Warnings, "\n"), "also active on branch main") {
+		t.Fatalf("expected same-repo branch warning, got %#v", preflight.Warnings)
+	}
+}
+
 func TestBoardAndSummaryShowOverlap(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

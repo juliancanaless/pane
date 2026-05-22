@@ -30,6 +30,8 @@ type Session struct {
 	WorkspaceRoot string
 	CWD           string
 	Branch        string
+	RepoID        string
+	GitCommonDir  string
 	LastIntent    string
 	StartedAt     int64
 	LastSeenAt    int64

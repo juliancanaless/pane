@@ -8,6 +8,8 @@ type SessionEnvironmentPayload struct {
 	WorkspaceRoot string `json:"workspace_root"`
 	CWD           string `json:"cwd"`
 	Branch        string `json:"branch"`
+	RepoID        string `json:"repo_id"`
+	GitCommonDir  string `json:"git_common_dir"`
 }
 
 type SessionIntentPayload struct {
@@ -18,6 +20,8 @@ type SessionIntentPayload struct {
 
 type BoardPayload struct {
 	WorkspaceRoot string `json:"workspace_root"`
+	RepoID        string `json:"repo_id"`
+	Scope         string `json:"scope"`
 }
 
 type MessageSendPayload struct {
@@ -38,6 +42,7 @@ type GitPayload struct {
 	PaneID        string   `json:"pane_id"`
 	WorkspaceRoot string   `json:"workspace_root"`
 	Branch        string   `json:"branch"`
+	RepoID        string   `json:"repo_id"`
 	Args          []string `json:"args"`
 	Result        string   `json:"result,omitempty"`
 }
@@ -55,6 +60,8 @@ func EnvironmentPayload(value session.Environment) map[string]any {
 		"workspace_root": value.WorkspaceRoot,
 		"cwd":            value.CWD,
 		"branch":         value.Branch,
+		"repo_id":        value.RepoID,
+		"git_common_dir": value.GitCommonDir,
 	}
 }
 
@@ -75,7 +82,7 @@ func NamePayload(value session.Environment, name string) map[string]any {
 }
 
 func BoardRequestPayload(value session.Environment) map[string]any {
-	return map[string]any{"workspace_root": value.WorkspaceRoot}
+	return map[string]any{"workspace_root": value.WorkspaceRoot, "repo_id": value.RepoID}
 }
 
 func HistoryRequestPayload(value session.Environment, since int64) map[string]any {
@@ -117,6 +124,7 @@ func GitRequestPayload(value session.Environment, args []string) map[string]any 
 		"pane_id":        value.PaneID,
 		"workspace_root": value.WorkspaceRoot,
 		"branch":         value.Branch,
+		"repo_id":        value.RepoID,
 		"args":           args,
 	}
 }

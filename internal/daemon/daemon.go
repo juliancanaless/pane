@@ -246,6 +246,8 @@ func (d *Daemon) handleSessionInit(request protocol.Request) protocol.Response {
 		WorkspaceRoot: payloadString(request, "workspace_root"),
 		CWD:           payloadString(request, "cwd"),
 		Branch:        payloadString(request, "branch"),
+		RepoID:        payloadString(request, "repo_id"),
+		GitCommonDir:  payloadString(request, "git_common_dir"),
 	}
 	result, err := d.manager.Init(context.Background(), input)
 	if err != nil {
@@ -264,6 +266,8 @@ func (d *Daemon) handleSessionHeartbeat(request protocol.Request) protocol.Respo
 		WorkspaceRoot: payloadString(request, "workspace_root"),
 		CWD:           payloadString(request, "cwd"),
 		Branch:        payloadString(request, "branch"),
+		RepoID:        payloadString(request, "repo_id"),
+		GitCommonDir:  payloadString(request, "git_common_dir"),
 	}
 	result, err := d.manager.Heartbeat(context.Background(), input)
 	if err != nil {
@@ -312,6 +316,8 @@ func (d *Daemon) handleSessionContinue(request protocol.Request) protocol.Respon
 		WorkspaceRoot: payloadString(request, "workspace_root"),
 		CWD:           payloadString(request, "cwd"),
 		Branch:        payloadString(request, "branch"),
+		RepoID:        payloadString(request, "repo_id"),
+		GitCommonDir:  payloadString(request, "git_common_dir"),
 	}
 	parent, err := d.manager.Resolve(context.Background(), input.WorkspaceRoot, payloadString(request, "parent_session_id"))
 	if errors.Is(err, session.ErrNotFound) {
@@ -335,7 +341,14 @@ func (d *Daemon) handleSessionContinue(request protocol.Request) protocol.Respon
 
 func (d *Daemon) handleSessionHistory(request protocol.Request) protocol.Response {
 	workspaceRoot := payloadString(request, "workspace_root")
-	items, err := d.manager.ListRecent(context.Background(), workspaceRoot, 100)
+	repoID := payloadString(request, "repo_id")
+	var items []session.Session
+	var err error
+	if payloadString(request, "scope") == "repo" && repoID != "" {
+		items, err = d.manager.ListRecentByRepo(context.Background(), repoID, 100)
+	} else {
+		items, err = d.manager.ListRecent(context.Background(), workspaceRoot, 100)
+	}
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
@@ -383,9 +396,17 @@ func (d *Daemon) handleSessionName(request protocol.Request) protocol.Response {
 
 func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	workspaceRoot := payloadString(request, "workspace_root")
+	repoID := payloadString(request, "repo_id")
+	scope := payloadString(request, "scope")
 	var sessions []session.Session
 	var err error
-	if payloadBool(request, "show_all") {
+	if scope == "repo" && repoID != "" {
+		if payloadBool(request, "show_all") {
+			sessions, err = d.manager.ListRecentByRepo(context.Background(), repoID, 50)
+		} else {
+			sessions, err = d.manager.ListActiveByRepo(context.Background(), repoID)
+		}
+	} else if payloadBool(request, "show_all") {
 		sessions, err = d.manager.ListRecent(context.Background(), workspaceRoot, 50)
 	} else {
 		sessions, err = d.manager.ListActive(context.Background(), workspaceRoot)
@@ -402,6 +423,8 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 		return protocol.Failure(err.Error())
 	}
 	b := board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats)
+	b.Scope = scope
+	b.RepoID = repoID
 	b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
 	b.SemanticOverlaps = d.boardSemanticOverlaps(context.Background(), workspaceRoot, sessions)
 	b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot, sessions)
@@ -1147,6 +1170,12 @@ func (d *Daemon) handleGitPreflight(request protocol.Request) protocol.Response 
 		return protocol.Failure(err.Error())
 	}
 	sessions, err := d.manager.ListActive(context.Background(), payloadString(request, "workspace_root"))
+	if current.RepoID != "" {
+		repoSessions, repoErr := d.manager.ListActiveByRepo(context.Background(), current.RepoID)
+		if repoErr == nil {
+			sessions = repoSessions
+		}
+	}
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
@@ -1389,6 +1418,8 @@ func sessionPayload(value session.Session) map[string]any {
 		"workspace_root":    value.WorkspaceRoot,
 		"cwd":               value.CWD,
 		"branch":            value.Branch,
+		"repo_id":           value.RepoID,
+		"git_common_dir":    value.GitCommonDir,
 		"intent":            value.LastIntent,
 		"started_at":        value.StartedAt,
 		"last_seen_at":      value.LastSeenAt,

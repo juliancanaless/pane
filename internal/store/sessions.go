@@ -16,13 +16,13 @@ func NewSessionStore(db *sql.DB) SessionStore {
 	return SessionStore{db: db}
 }
 
-const sessionColumns = `session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, COALESCE(name, '')`
+const sessionColumns = `session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, COALESCE(name, ''), COALESCE(repo_id, ''), COALESCE(git_common_dir, '')`
 
 func (s SessionStore) Save(ctx context.Context, value session.Session) error {
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO sessions (
-    session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, name
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, name, repo_id, git_common_dir
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
     pane_id = excluded.pane_id,
     tty = excluded.tty,
@@ -33,8 +33,10 @@ ON CONFLICT(session_id) DO UPDATE SET
     last_seen_at = excluded.last_seen_at,
     status = excluded.status,
     parent_session_id = excluded.parent_session_id,
-    name = COALESCE(excluded.name, sessions.name)
-`, value.ID, value.PaneID, value.TTY, value.WorkspaceRoot, value.CWD, value.Branch, value.LastIntent, value.StartedAt, value.LastSeenAt, string(value.Status), nullableString(value.ParentID), nullableString(value.Name))
+    name = COALESCE(excluded.name, sessions.name),
+    repo_id = excluded.repo_id,
+    git_common_dir = excluded.git_common_dir
+`, value.ID, value.PaneID, value.TTY, value.WorkspaceRoot, value.CWD, value.Branch, value.LastIntent, value.StartedAt, value.LastSeenAt, string(value.Status), nullableString(value.ParentID), nullableString(value.Name), nullableString(value.RepoID), nullableString(value.GitCommonDir))
 	return err
 }
 
@@ -99,6 +101,36 @@ WHERE workspace_root = ?
 ORDER BY last_seen_at DESC
 LIMIT ?
 `, workspaceRoot, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSessions(rows)
+}
+
+func (s SessionStore) ListActiveByRepo(ctx context.Context, repoID string) ([]session.Session, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT `+sessionColumns+`
+FROM sessions
+WHERE repo_id = ?
+  AND status IN ('active', 'idle')
+ORDER BY last_seen_at DESC
+`, repoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSessions(rows)
+}
+
+func (s SessionStore) ListRecentByRepo(ctx context.Context, repoID string, limit int) ([]session.Session, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT `+sessionColumns+`
+FROM sessions
+WHERE repo_id = ?
+ORDER BY last_seen_at DESC
+LIMIT ?
+`, repoID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +241,8 @@ func scanSession(row scanner) (session.Session, error) {
 		&status,
 		&parent,
 		&value.Name,
+		&value.RepoID,
+		&value.GitCommonDir,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return session.Session{}, session.ErrNotFound

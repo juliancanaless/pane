@@ -8,6 +8,57 @@ import (
 	"github.com/juliancanalez/pane/internal/session"
 )
 
+func TestSessionStorePersistsRepoIdentity(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	store := NewSessionStore(db)
+	ctx := context.Background()
+	value := session.Session{ID: "session-a", PaneID: "pane-a", WorkspaceRoot: "/workspace-a", CWD: "/workspace-a", Branch: "main", RepoID: "/repo/.git", GitCommonDir: "/repo/.git", StartedAt: 1, LastSeenAt: 1, Status: session.StatusActive}
+	if err := store.Save(ctx, value); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	got, err := store.FindByID(ctx, "session-a")
+	if err != nil {
+		t.Fatalf("FindByID returned error: %v", err)
+	}
+	if got.RepoID != "/repo/.git" || got.GitCommonDir != "/repo/.git" {
+		t.Fatalf("repo identity = %q common = %q", got.RepoID, got.GitCommonDir)
+	}
+}
+
+func TestSessionStoreListsActiveByRepo(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	store := NewSessionStore(db)
+	ctx := context.Background()
+	values := []session.Session{
+		{ID: "session-a", PaneID: "pane-a", WorkspaceRoot: "/worktree-a", RepoID: "/repo/.git", StartedAt: 1, LastSeenAt: 30, Status: session.StatusActive},
+		{ID: "session-b", PaneID: "pane-b", WorkspaceRoot: "/worktree-b", RepoID: "/repo/.git", StartedAt: 1, LastSeenAt: 20, Status: session.StatusIdle},
+		{ID: "session-c", PaneID: "pane-c", WorkspaceRoot: "/other", RepoID: "/other/.git", StartedAt: 1, LastSeenAt: 10, Status: session.StatusActive},
+	}
+	for _, value := range values {
+		if err := store.Save(ctx, value); err != nil {
+			t.Fatalf("Save returned error: %v", err)
+		}
+	}
+	got, err := store.ListActiveByRepo(ctx, "/repo/.git")
+	if err != nil {
+		t.Fatalf("ListActiveByRepo returned error: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != "session-a" || got[1].ID != "session-b" {
+		t.Fatalf("unexpected sessions: %#v", got)
+	}
+}
+
 func TestSessionStorePersistsParentSession(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

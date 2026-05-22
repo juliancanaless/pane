@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, and V3.4 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, and first-pass activity decay so older file activity compresses instead of flooding output.
+**V3.1, V3.2, V3.3, V3.4, and D.0 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, and first-pass worktree-aware repo identity for same-repository board/history/preflight awareness.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -723,7 +723,7 @@ Still needed:
 
 Worktree support does not invalidate prior phases. V1/V2/V3 are workspace-root scoped and remain useful inside one checkout. The missing Done-quality behavior is recognizing that multiple workspace roots may be sibling Git worktrees of the same repository.
 
-Future work should add repository identity alongside `workspace_root`, then use it for cross-worktree board/history aggregation, git preflight branch-risk checks, and semantic overlap normalization by repo-relative path.
+First pass implemented after V3.4: sessions now store repository identity from Git common-dir metadata, `pane board --repo` and `pane history --repo` can aggregate sibling worktrees, and git preflight checks active same-repo sessions for branch risk. Still needed: semantic graph normalization across worktrees and richer repo/worktree display controls.
 
 ### Phase 23 — Temporal decay and summarization
 
@@ -746,6 +746,30 @@ Still needed:
 - persisted generated natural-language summaries rather than deterministic file/dir counts
 - decay-aware semantic overlap thresholds
 - user-tunable decay windows once real dogfood reveals preferred density
+
+### Phase 24 — Worktree-aware repository identity
+
+Status: first pass implemented (D.0).
+
+Goal:
+
+Let Pane preserve worktree-local context while also recognizing sibling Git worktrees as one repository for higher-level awareness.
+
+Completed:
+
+1. Added Git common-dir based repository identity detection to session environment detection.
+2. Added `repo_id` and `git_common_dir` to sessions with SQLite migrations.
+3. Added repo-scoped session listing in the session store/manager.
+4. Added `pane board --repo` to show active/recent sessions across sibling worktrees while preserving each session's worktree path.
+5. Added `pane history --repo` for same-repository history.
+6. Git preflight now considers active sessions in sibling worktrees of the same repo for branch risk warnings.
+7. Added store and daemon tests for repo identity, repo board scope, and same-repo git preflight warnings.
+
+Still needed:
+
+- normalize semantic graph keys across worktrees by repo-relative path instead of workspace-root-relative path only
+- richer UI controls for workspace-only vs repo-wide defaults
+- dogfood with actual `git worktree` sibling checkouts
 
 ## Testing plan
 

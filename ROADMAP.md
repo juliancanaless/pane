@@ -241,6 +241,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.0 — Git worktree-aware repository identity
 
+**Status:** first pass implemented.
+
 **Why:** Multi-agent coding often uses one worktree per agent. That is the right Git safety model, but it can hide related work if Pane only groups by filesystem workspace root.
 
 **What:**
@@ -251,7 +253,7 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 - Normalize semantic graph keys so equivalent repo-relative files can be compared across worktrees
 - Keep worktree-local file watching and indexing; only aggregate higher-level awareness where repo identity matches
 
-**Exit criteria:** Two agents in sibling worktrees of the same repo can see each other on the board, git preflight can warn about branch/semantic risks across worktrees, and Pane still preserves each worktree's isolated cwd/working-set context.
+**Exit criteria:** Two agents in sibling worktrees of the same repo can see each other on the board, git preflight can warn about branch/semantic risks across worktrees, and Pane still preserves each worktree's isolated cwd/working-set context — first pass done for repo identity detection/storage, `pane board --repo`, `pane history --repo`, and same-repo branch preflight warnings.
 
 
 ### D.1 — Worker/child session hierarchies

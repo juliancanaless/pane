@@ -120,4 +120,7 @@ var additiveMigrations = []string{
 	`ALTER TABLE sessions ADD COLUMN parent_session_id TEXT REFERENCES sessions(session_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_session_id)`,
 	`ALTER TABLE sessions ADD COLUMN name TEXT`,
+	`ALTER TABLE sessions ADD COLUMN repo_id TEXT`,
+	`ALTER TABLE sessions ADD COLUMN git_common_dir TEXT`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_repo_seen ON sessions(repo_id, last_seen_at)`,
 }

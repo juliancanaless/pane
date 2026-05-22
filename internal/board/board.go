@@ -4,6 +4,8 @@ import "github.com/juliancanalez/pane/internal/session"
 
 type Board struct {
 	WorkspaceRoot    string
+	RepoID           string
+	Scope            string
 	Sessions         []Session
 	Overlaps         []OverlapInfo
 	SemanticOverlaps []SemanticOverlapInfo
@@ -40,6 +42,8 @@ type Session struct {
 	Status            session.Status
 	Branch            string
 	CWD               string
+	WorkspaceRoot     string
+	RepoID            string
 	LastIntent        string
 	LastSeenAt        int64
 	UnreadMessages    int
@@ -69,6 +73,8 @@ func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, mes
 			Status:            value.Status,
 			Branch:            value.Branch,
 			CWD:               value.CWD,
+			WorkspaceRoot:     value.WorkspaceRoot,
+			RepoID:            value.RepoID,
 			LastIntent:        value.LastIntent,
 			LastSeenAt:        value.LastSeenAt,
 			UnreadMessages:    messages.UnreadMessages,

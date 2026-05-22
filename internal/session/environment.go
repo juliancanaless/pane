@@ -13,6 +13,8 @@ type Environment struct {
 	WorkspaceRoot string
 	CWD           string
 	Branch        string
+	RepoID        string
+	GitCommonDir  string
 }
 
 func DetectEnvironment() (Environment, error) {
@@ -22,6 +24,7 @@ func DetectEnvironment() (Environment, error) {
 		return Environment{}, err
 	}
 	branch, _ := gitOutput("branch", "--show-current")
+	repository := DetectRepository(workspaceRoot)
 	cwd, err := os.Getwd()
 	if err != nil {
 		return Environment{}, err
@@ -32,6 +35,8 @@ func DetectEnvironment() (Environment, error) {
 		WorkspaceRoot: workspaceRoot,
 		CWD:           cwd,
 		Branch:        branch,
+		RepoID:        repository.ID,
+		GitCommonDir:  repository.GitCommonDir,
 	}, nil
 }
 

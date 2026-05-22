@@ -54,7 +54,7 @@ The core surface is the shared awareness board. A Pane-aware agent can ask:
 
 The human can inspect the board, but should not have to maintain it. Agents are expected to update their own state as they work.
 
-Git worktrees are part of the intended serious workflow. Today Pane is strongest within one workspace root/check-out. The Done-quality direction is worktree-aware repository memory: each worktree keeps its isolated cwd, file watcher, and local working set, while Pane can aggregate related sessions by shared repository identity for board, history, git risk, and semantic warnings.
+Git worktrees are part of the intended serious workflow. Each worktree keeps its isolated cwd, file watcher, and local working set, while Pane can aggregate related sessions by shared repository identity. First-pass support includes `pane board --repo`, `pane history --repo`, and same-repository branch-risk git preflight warnings; semantic graph normalization across worktrees remains future work.
 
 Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Restarting the daemon does not delete old sessions. `pane board` hides closed sessions and first-pass stale sessions by default; use `pane close` to close the current session and `pane sessions prune` to close stale active/idle sessions in the workspace.
 
@@ -62,7 +62,7 @@ Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Res
 
 **V1 is complete.** Pane is a working local coordination layer with daemon-backed sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, agent state, and session lifecycle cleanup. Dogfooded and verified 2026-05-21.
 
-V2 is complete. Current work is V3 semantic intelligence: a Rust/tree-sitter analyzer, persisted symbol/dependency graph data, and first-pass semantic overlap warnings. Worktree-aware repository identity is now explicitly called out as Done-quality infrastructure, not a replacement for the V1/V2/V3 work. See [`ROADMAP.md`](ROADMAP.md).
+V2 is complete. V3 semantic intelligence has first-pass symbol/dependency analysis, semantic overlap warnings, and activity decay. Worktree-aware repository identity has a first-pass implementation for repo-wide board/history/preflight awareness. See [`ROADMAP.md`](ROADMAP.md).
 
 ## V1 focus
 

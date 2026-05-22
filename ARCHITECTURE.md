@@ -37,12 +37,12 @@ V1 focuses on concurrent awareness because it is the right foundation: sessions,
 
 Pane currently treats `workspace_root` as the primary scope. That is correct for file watching, cwd rendering, and local indexing because each Git worktree has its own filesystem root. It is incomplete for Done-quality multi-agent work because sibling worktrees can represent the same repository.
 
-The intended model is two-layered:
+The model is two-layered:
 
 - `workspace_root`: concrete checkout/worktree path; owns watcher events, cwd, local file activity, and local analyzer indexing.
-- `repo_identity`: stable Git repository identity shared by related worktrees; owns cross-worktree board/history aggregation, branch risk, and semantic graph normalization.
+- `repo_id`: stable Git common-dir based repository identity shared by related worktrees; owns cross-worktree board/history aggregation and branch-risk checks.
 
-This does not invalidate existing data. Existing workspace-scoped records remain the local truth. A future migration can add repo/worktree metadata and aggregate above the current workspace layer.
+Current first pass stores `repo_id` and `git_common_dir` on sessions, exposes `pane board --repo` and `pane history --repo`, and lets git preflight consider active sessions in sibling worktrees. Semantic graph normalization across worktrees is still future work.
 
 ## Core components
 
@@ -236,7 +236,7 @@ Messages remove the human as the context router.
 
 V1 includes git as an early guardrail, not as the product center.
 
-Worktree note: git guardrails should eventually reason across sibling worktrees of the same repository. Worktrees are a safety mechanism, not a separate product scope; Pane should warn when branch or semantic risk crosses worktree boundaries while preserving each worktree's separate working directory.
+Worktree note: git guardrails reason across sibling worktrees of the same repository for first-pass branch risk. Worktrees are a safety mechanism, not a separate product scope; Pane should warn when branch or semantic risk crosses worktree boundaries while preserving each worktree's separate working directory. Semantic cross-worktree risk remains a later refinement.
 
 `pane git` currently:
 
