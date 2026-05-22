@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juliancanalez/pane/internal/analysis"
 	"github.com/juliancanalez/pane/internal/daemon"
 	"github.com/juliancanalez/pane/internal/gitguard"
 	"github.com/juliancanalez/pane/internal/protocol"
@@ -53,6 +54,8 @@ Usage:
   pane state get <key>             Read workspace state as JSON
   pane state list [prefix]         List workspace state keys and JSON values
   pane state delete <key>          Delete workspace state
+
+  pane analyze symbols <file>      Parse a source file and print a JSON symbol table
 
 Session and board commands require the daemon to be running.
 
@@ -108,6 +111,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runReply(args[1:], stdout)
 	case "state":
 		return runState(args[1:], stdout)
+	case "analyze":
+		return runAnalyze(args[1:], stdout)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -486,6 +491,22 @@ func runGit(args []string, stdout, stderr io.Writer) error {
 	if err != nil {
 		return commandExitError{code: code}
 	}
+	return nil
+}
+
+func runAnalyze(args []string, stdout io.Writer) error {
+	if len(args) != 2 || args[0] != "symbols" {
+		return errors.New("usage: pane analyze symbols <file>")
+	}
+	table, err := (analysis.Client{}).Symbols(context.Background(), args[1])
+	if err != nil {
+		return err
+	}
+	encoded, err := json.MarshalIndent(table, "", "  ")
+	if err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintf(stdout, "%s\n", encoded)
 	return nil
 }
 

@@ -131,7 +131,7 @@ The repository contains:
 - protocol codec and request types
 - initial tests
 
-The current focus is V2: overlap detection, richer git preflight, board/summary signal quality, daemon hardening, and targeting ergonomics. See [`ROADMAP.md`](ROADMAP.md) for the full guided plan.
+The current focus is V3: semantic intelligence through a Rust/tree-sitter analysis engine. See [`ROADMAP.md`](ROADMAP.md) for the full guided plan.
 
 ## Project shape
 
@@ -144,6 +144,8 @@ The current focus is V2: overlap detection, richer git preflight, board/summary 
 - `internal/store` — SQLite persistence
 - `internal/daemon` — local daemon and socket server
 - `internal/protocol` — CLI/daemon protocol types
+- `internal/analysis` — Go client for the Rust analyzer subprocess
+- `analysis/` — Rust/tree-sitter analysis engine scaffold
 - `docs/` — product and technical notes
 
 ## Development

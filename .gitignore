@@ -3,6 +3,7 @@
 *.db-shm
 *.db-wal
 bin/
+analysis/target/
 dist/
 .tmp/
 coverage/

@@ -644,6 +644,29 @@ Final confirmation:
 
 - user reran the original two-pane overlap dogfood on the real default daemon/DB after the attribution fix; board/summary/git overlap checks passed
 
+### Phase 20 — Rust analysis scaffold
+
+Status: first pass implemented (V3.1).
+
+Goal:
+
+Create the Rust/tree-sitter analysis engine foundation for V3 semantic intelligence.
+
+Completed:
+
+1. Added `analysis/` Rust crate with `pane-analyze` binary.
+2. Added tree-sitter parsers for Go, Python, Rust, TypeScript, and TSX.
+3. `pane-analyze symbols <file>` emits a JSON symbol table.
+4. Added Go subprocess client in `internal/analysis`.
+5. Added `pane analyze symbols <file>` CLI wrapper.
+6. Updated `make build` and `make test` to include Rust analyzer build/tests.
+
+Still needed:
+
+- integrate analysis results with daemon/store instead of one-shot CLI output
+- persist symbol tables and dependency edges
+- decide long-term subprocess vs FFI boundary after latency dogfooding
+
 ## Testing plan
 
 ### Automated baseline

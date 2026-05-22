@@ -160,6 +160,8 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 ### V3.1 — Rust analysis engine scaffold
 
+**Status:** first pass implemented.
+
 **Why:** Symbol-level analysis (tree-sitter parsing, semantic diffing, dependency graphs) is CPU-bound work that benefits from Rust's performance and safety guarantees.
 
 **What:**
@@ -170,7 +172,7 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 **Decision:** FFI (CGo/shared library) vs. local pipe (separate process). Pipe is cleaner for independent development and restart; FFI is lower latency. Decide based on V3.2 latency requirements.
 
-**Exit criteria:** Rust analysis engine can parse a file and return its symbol table to the Go daemon.
+**Exit criteria:** Rust analysis engine can parse a file and return its symbol table to Go via `internal/analysis.Client` and `pane analyze symbols` — first pass done.
 
 ### V3.2 — Dependency graph construction
 

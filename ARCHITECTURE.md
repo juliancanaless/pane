@@ -12,6 +12,8 @@ short-lived pane CLI
 long-running local Pane daemon
         ↓
 SQLite-backed shared memory
+        ↓
+Rust/tree-sitter analyzer subprocess for V3 semantic analysis
 ```
 
 The daemon is the source of truth. The CLI should stay thin: detect local context, send a request, print the daemon's response.
@@ -31,6 +33,20 @@ Pane is an environment layer for agents:
 V1 focuses on concurrent awareness because it is the right foundation: sessions, intents, board, summaries, messages, file activity, and git guardrails.
 
 ## Core components
+
+### Analysis layer: `analysis/` and `internal/analysis`
+
+V3 introduces a Rust analysis engine.
+
+Current first pass:
+
+- `analysis/` contains the Rust `pane-analyze` binary.
+- `pane-analyze symbols <file>` parses Go, Python, Rust, TypeScript, and TSX with tree-sitter.
+- Output is a JSON symbol table.
+- `internal/analysis.Client` calls the analyzer as a subprocess.
+- `pane analyze symbols <file>` exposes this through the Go CLI.
+
+The subprocess boundary is intentional for the scaffold: it avoids CGo/FFI complexity and keeps Rust analysis independently testable. A later V3 phase can revisit FFI if latency requires it.
 
 ### `cmd/pane`
 
