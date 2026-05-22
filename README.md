@@ -60,7 +60,7 @@ Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Res
 
 **V1 is complete.** Pane is a working local coordination layer with daemon-backed sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, agent state, and session lifecycle cleanup. Dogfooded and verified 2026-05-21.
 
-V2 work (overlap detection, richer preflight, daemon hardening) is scoped in [`ROADMAP.md`](ROADMAP.md).
+V2 is complete. Current work is V3 semantic intelligence: a Rust/tree-sitter analyzer, persisted symbol/dependency graph data, and later semantic overlap warnings. See [`ROADMAP.md`](ROADMAP.md).
 
 ## V1 focus
 
@@ -130,6 +130,8 @@ The repository contains:
 - Unix socket daemon foundation with first-pass PID/status lifecycle metadata
 - protocol codec and request types
 - initial tests
+- Rust/tree-sitter analyzer for symbols and first-pass dependency edges
+- persisted `analysis_symbols` and `dependency_edges` tables with `pane analyze index` / `pane analyze dependents`
 
 The current focus is V3: semantic intelligence through a Rust/tree-sitter analysis engine. See [`ROADMAP.md`](ROADMAP.md) for the full guided plan.
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juliancanalez/pane/internal/gitguard"
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/session"
+	"github.com/juliancanalez/pane/internal/store"
 )
 
 const usage = `Pane gives concurrent coding agents shared local memory over a workspace.
@@ -56,6 +58,9 @@ Usage:
   pane state delete <key>          Delete workspace state
 
   pane analyze symbols <file>      Parse a source file and print a JSON symbol table
+  pane analyze deps <file>         Parse imports/use/require edges for a source file
+  pane analyze index <path...>     Persist symbols and dependency edges in SQLite
+  pane analyze dependents <target> Show files with dependency edges to a target/module/symbol
 
 Session and board commands require the daemon to be running.
 
@@ -495,19 +500,193 @@ func runGit(args []string, stdout, stderr io.Writer) error {
 }
 
 func runAnalyze(args []string, stdout io.Writer) error {
-	if len(args) != 2 || args[0] != "symbols" {
-		return errors.New("usage: pane analyze symbols <file>")
+	if len(args) == 0 {
+		return errors.New("usage: pane analyze symbols|deps|index|dependents ...")
 	}
-	table, err := (analysis.Client{}).Symbols(context.Background(), args[1])
-	if err != nil {
-		return err
+	switch args[0] {
+	case "symbols":
+		if len(args) != 2 {
+			return errors.New("usage: pane analyze symbols <file>")
+		}
+		table, err := (analysis.Client{}).Symbols(context.Background(), args[1])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, table)
+	case "deps", "dependencies":
+		if len(args) != 2 {
+			return errors.New("usage: pane analyze deps <file>")
+		}
+		graph, err := (analysis.Client{}).Dependencies(context.Background(), args[1])
+		if err != nil {
+			return err
+		}
+		return writeJSON(stdout, graph)
+	case "index":
+		return runAnalyzeIndex(args[1:], stdout)
+	case "dependents":
+		return runAnalyzeDependents(args[1:], stdout)
+	default:
+		return errors.New("usage: pane analyze symbols|deps|index|dependents ...")
 	}
-	encoded, err := json.MarshalIndent(table, "", "  ")
+}
+
+func writeJSON(stdout io.Writer, value any) error {
+	encoded, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "%s\n", encoded)
 	return nil
+}
+
+func runAnalyzeIndex(args []string, stdout io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("usage: pane analyze index <path...>")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	files, err := analysisInputFiles(args)
+	if err != nil {
+		return err
+	}
+	dbPath, err := databasePath()
+	if err != nil {
+		return err
+	}
+	db, err := store.Open(dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	client := analysis.Client{}
+	analysisStore := store.NewAnalysisStore(db)
+	indexed := 0
+	for _, file := range files {
+		table, err := client.Symbols(context.Background(), file)
+		if err != nil {
+			return err
+		}
+		graph, err := client.Dependencies(context.Background(), file)
+		if err != nil {
+			return err
+		}
+		relFile, err := filepath.Rel(env.WorkspaceRoot, file)
+		if err != nil || strings.HasPrefix(relFile, "..") {
+			relFile = file
+		}
+		if err := analysisStore.UpsertFile(context.Background(), store.FileAnalysis{
+			WorkspaceRoot: env.WorkspaceRoot,
+			File:          filepath.ToSlash(relFile),
+			Language:      table.Language,
+			Symbols:       storeSymbols(table.Symbols),
+			Dependencies:  storeDependencies(graph.Dependencies),
+		}); err != nil {
+			return err
+		}
+		indexed++
+	}
+	_, _ = fmt.Fprintf(stdout, "indexed %d file(s)\n", indexed)
+	return nil
+}
+
+func runAnalyzeDependents(args []string, stdout io.Writer) error {
+	if len(args) != 1 {
+		return errors.New("usage: pane analyze dependents <target>")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	dbPath, err := databasePath()
+	if err != nil {
+		return err
+	}
+	db, err := store.Open(dbPath)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	dependents, err := store.NewAnalysisStore(db).Dependents(context.Background(), env.WorkspaceRoot, args[0], args[0])
+	if err != nil {
+		return err
+	}
+	for _, dep := range dependents {
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\t%s\t%.2f\n", dep.SourceFile, dep.Target, dep.TargetSymbol, dep.Confidence)
+	}
+	return nil
+}
+
+func analysisInputFiles(paths []string) ([]string, error) {
+	var files []string
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+		if !info.IsDir() {
+			if isSupportedAnalysisFile(path) {
+				abs, err := filepath.Abs(path)
+				if err != nil {
+					return nil, err
+				}
+				files = append(files, abs)
+			}
+			continue
+		}
+		if err := filepath.WalkDir(path, func(child string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() && shouldSkipAnalysisDir(entry.Name()) {
+				return filepath.SkipDir
+			}
+			if !entry.IsDir() && isSupportedAnalysisFile(child) {
+				abs, err := filepath.Abs(child)
+				if err != nil {
+					return err
+				}
+				files = append(files, abs)
+			}
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	return files, nil
+}
+
+func shouldSkipAnalysisDir(name string) bool {
+	return name == ".git" || name == "node_modules" || name == "vendor" || name == "target" || name == "bin"
+}
+
+func isSupportedAnalysisFile(path string) bool {
+	switch filepath.Ext(path) {
+	case ".go", ".py", ".rs", ".ts", ".tsx":
+		return true
+	default:
+		return false
+	}
+}
+
+func storeSymbols(symbols []analysis.Symbol) []store.AnalysisSymbol {
+	out := make([]store.AnalysisSymbol, 0, len(symbols))
+	for _, symbol := range symbols {
+		out = append(out, store.AnalysisSymbol{Name: symbol.Name, Kind: symbol.Kind, StartLine: symbol.StartLine, EndLine: symbol.EndLine})
+	}
+	return out
+}
+
+func storeDependencies(dependencies []analysis.Dependency) []store.DependencyEdge {
+	out := make([]store.DependencyEdge, 0, len(dependencies))
+	for _, dep := range dependencies {
+		out = append(out, store.DependencyEdge{Target: dep.Target, TargetSymbol: dep.TargetSymbol, Kind: dep.Kind, Confidence: dep.Confidence})
+	}
+	return out
 }
 
 func runState(args []string, stdout io.Writer) error {

@@ -10,7 +10,9 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-See `ROADMAP.md` for the V2/V3/Done plan.
+**V3.1 and V3.2 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, a Go subprocess client, SQLite persistence for `analysis_symbols` and `dependency_edges`, and CLI commands to index and query dependents.
+
+See `ROADMAP.md` for the V3/Done plan.
 
 Validated recently with:
 
@@ -663,9 +665,33 @@ Completed:
 
 Still needed:
 
-- integrate analysis results with daemon/store instead of one-shot CLI output
-- persist symbol tables and dependency edges
+- integrate analysis indexing with daemon file-watcher events instead of explicit CLI indexing only
+- extend dependency extraction beyond imports into symbol-level references across languages
 - decide long-term subprocess vs FFI boundary after latency dogfooding
+
+### Phase 21 — Dependency graph construction
+
+Status: first pass implemented (V3.2).
+
+Goal:
+
+Persist semantic analysis data and make Pane answer downstream dependency questions.
+
+Completed:
+
+1. Added `pane-analyze deps <file>` for first-pass dependency extraction from Go imports, Python imports/from-imports, Rust use declarations, and TypeScript/TSX import/require edges.
+2. Added `internal/analysis.Client.Dependencies` for subprocess decoding.
+3. Added SQLite `analysis_symbols` and `dependency_edges` tables.
+4. Added `internal/store.AnalysisStore` to replace a file's symbols/dependency edges incrementally.
+5. Added `pane analyze deps <file>` for JSON dependency output.
+6. Added `pane analyze index <path...>` to persist symbols and edges for files/directories.
+7. Added `pane analyze dependents <target>` to list persisted files that depend on a module/path/symbol target.
+
+Still needed:
+
+- daemon-triggered incremental indexing from file watcher events and startup scans
+- richer target resolution from import paths to concrete workspace files
+- deeper symbol-level reference extraction and signature-change detection for V3.3
 
 ## Testing plan
 

@@ -42,9 +42,12 @@ Current first pass:
 
 - `analysis/` contains the Rust `pane-analyze` binary.
 - `pane-analyze symbols <file>` parses Go, Python, Rust, TypeScript, and TSX with tree-sitter.
-- Output is a JSON symbol table.
+- `pane-analyze deps <file>` extracts first-pass imports/use/require dependency edges with confidence scores.
+- Outputs are JSON symbol tables and dependency graphs.
 - `internal/analysis.Client` calls the analyzer as a subprocess.
-- `pane analyze symbols <file>` exposes this through the Go CLI.
+- `pane analyze symbols|deps <file>` exposes this through the Go CLI.
+- `pane analyze index <path...>` persists symbols and dependency edges in SQLite.
+- `pane analyze dependents <target>` queries persisted dependency edges for downstream files.
 
 The subprocess boundary is intentional for the scaffold: it avoids CGo/FFI complexity and keeps Rust analysis independently testable. A later V3 phase can revisit FFI if latency requires it.
 
@@ -131,6 +134,8 @@ Current tables:
 - `file_activity`
 - `git_events`
 - `agent_state`
+- `analysis_symbols`
+- `dependency_edges`
 
 Current stores:
 
@@ -139,6 +144,7 @@ Current stores:
 - file activity store
 - git event store
 - generic namespaced state store
+- analysis store for persisted symbol tables and dependency edges
 
 Future stores:
 - richer lineage/history stores

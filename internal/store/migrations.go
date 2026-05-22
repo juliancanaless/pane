@@ -85,6 +85,35 @@ CREATE TABLE IF NOT EXISTS agent_state (
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_state_workspace_key ON agent_state(workspace_root, key);
+
+CREATE TABLE IF NOT EXISTS analysis_symbols (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_root TEXT NOT NULL,
+    file           TEXT NOT NULL,
+    language       TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    kind           TEXT NOT NULL,
+    start_line     INTEGER NOT NULL,
+    end_line       INTEGER NOT NULL,
+    updated_at     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_analysis_symbols_lookup ON analysis_symbols(workspace_root, file, name);
+CREATE INDEX IF NOT EXISTS idx_analysis_symbols_name ON analysis_symbols(workspace_root, name);
+
+CREATE TABLE IF NOT EXISTS dependency_edges (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_root TEXT NOT NULL,
+    source_file    TEXT NOT NULL,
+    target         TEXT NOT NULL,
+    target_symbol  TEXT NOT NULL DEFAULT '',
+    kind           TEXT NOT NULL,
+    confidence     REAL NOT NULL DEFAULT 0.5,
+    updated_at     INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_dependency_edges_source ON dependency_edges(workspace_root, source_file);
+CREATE INDEX IF NOT EXISTS idx_dependency_edges_target ON dependency_edges(workspace_root, target, target_symbol);
 `
 
 var additiveMigrations = []string{

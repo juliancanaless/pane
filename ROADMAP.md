@@ -176,6 +176,8 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 ### V3.2 — Dependency graph construction
 
+**Status:** first pass implemented.
+
 **Why:** Knowing that `auth.ts` imports `validateToken` from `crypto.ts` lets Pane warn when a signature change affects downstream files.
 
 **What:**
@@ -184,7 +186,7 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 - Incremental updates: re-parse only changed files
 - Co-change heuristic layer: analyze git history for files frequently modified together
 
-**Exit criteria:** `pane` can answer "which files depend on this symbol?" for the primary project language.
+**Exit criteria:** `pane` can answer "which files depend on this symbol?" for the primary project language — first pass done via import/use/require edges persisted in SQLite and queried by `pane analyze dependents <target>`.
 
 ### V3.3 — Semantic overlap and preflight
 

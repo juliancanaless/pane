@@ -15,6 +15,20 @@ type SymbolTable struct {
 	Symbols  []Symbol `json:"symbols"`
 }
 
+type DependencyGraph struct {
+	File         string       `json:"file"`
+	Language     string       `json:"language"`
+	Dependencies []Dependency `json:"dependencies"`
+}
+
+type Dependency struct {
+	Target       string  `json:"target"`
+	TargetSymbol string  `json:"target_symbol"`
+	Kind         string  `json:"kind"`
+	Confidence   float64 `json:"confidence"`
+	Line         int     `json:"line"`
+}
+
 type Symbol struct {
 	Name      string `json:"name"`
 	Kind      string `json:"kind"`
@@ -27,23 +41,35 @@ type Client struct {
 }
 
 func (c Client) Symbols(ctx context.Context, file string) (SymbolTable, error) {
+	var table SymbolTable
+	if err := c.run(ctx, &table, "symbols", file); err != nil {
+		return SymbolTable{}, err
+	}
+	return table, nil
+}
+
+func (c Client) Dependencies(ctx context.Context, file string) (DependencyGraph, error) {
+	var graph DependencyGraph
+	if err := c.run(ctx, &graph, "deps", file); err != nil {
+		return DependencyGraph{}, err
+	}
+	return graph, nil
+}
+
+func (c Client) run(ctx context.Context, into any, args ...string) error {
 	analyzer := c.AnalyzerPath
 	if analyzer == "" {
 		analyzer = defaultAnalyzerPath()
 	}
-	cmd := exec.CommandContext(ctx, analyzer, "symbols", file)
+	cmd := exec.CommandContext(ctx, analyzer, args...)
 	output, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return SymbolTable{}, fmt.Errorf("analysis failed: %s", string(exitErr.Stderr))
+			return fmt.Errorf("analysis failed: %s", string(exitErr.Stderr))
 		}
-		return SymbolTable{}, err
+		return err
 	}
-	var table SymbolTable
-	if err := json.Unmarshal(output, &table); err != nil {
-		return SymbolTable{}, err
-	}
-	return table, nil
+	return json.Unmarshal(output, into)
 }
 
 func defaultAnalyzerPath() string {
