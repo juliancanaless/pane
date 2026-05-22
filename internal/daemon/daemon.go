@@ -447,7 +447,7 @@ func (d *Daemon) ensureWorkspaceWatcher(workspaceRoot string) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	d.watchers[workspaceRoot] = cancel
-	watcher := activity.PollWatcher{
+	watcher := activity.NativeWatcher{
 		Root: workspaceRoot,
 		OnEvent: func(event activity.WatchEvent) {
 			d.recordWatchEvent(workspaceRoot, event)
@@ -461,10 +461,15 @@ func (d *Daemon) recordWatchEvent(workspaceRoot string, event activity.WatchEven
 	if err != nil || len(sessions) == 0 {
 		return
 	}
+	// Store paths relative to workspace root for consistent overlap matching
+	path := event.Path
+	if rel, err := filepath.Rel(workspaceRoot, path); err == nil && !strings.HasPrefix(rel, "..") {
+		path = rel
+	}
 	owner, attribution := attributeSession(sessions, event.Path)
 	_ = d.activityStore.Save(context.Background(), activity.FileActivity{
 		SessionID:   owner.ID,
-		Path:        event.Path,
+		Path:        path,
 		EventType:   event.EventType,
 		Attribution: attribution,
 		Timestamp:   event.Time.Unix(),
