@@ -26,6 +26,7 @@ func Render(value StartupSummary, now time.Time) string {
 	renderCoordination(&out, value.Coordination, now)
 	renderLineage(&out, value.Lineage, now)
 	renderOverlaps(&out, value.Overlaps, value.WorkspaceRoot)
+	renderSemanticOverlaps(&out, value.SemanticOverlaps, value.WorkspaceRoot)
 
 	fmt.Fprintf(&out, "\nOther sessions: %d\n", len(value.Peers))
 	if len(value.Peers) == 0 {
@@ -78,6 +79,24 @@ func renderOverlaps(out *strings.Builder, overlaps []OverlapInfo, workspaceRoot 
 			label = overlap.PeerName
 		}
 		fmt.Fprintf(out, "  ⚠️  %s shares: %s\n", label, strings.Join(displayPaths(workspaceRoot, overlap.SharedFiles), ", "))
+	}
+}
+
+func renderSemanticOverlaps(out *strings.Builder, overlaps []SemanticOverlapInfo, workspaceRoot string) {
+	if len(overlaps) == 0 {
+		return
+	}
+	fmt.Fprintf(out, "\nSemantic overlap:\n")
+	for _, overlap := range overlaps {
+		label := overlap.PeerSessionID
+		if overlap.PeerName != "" {
+			label = overlap.PeerName
+		}
+		symbol := overlap.Symbol
+		if symbol == "" {
+			symbol = overlap.Dependency
+		}
+		fmt.Fprintf(out, "  ⚠️  %s depends on %s changed in %s via %s in %s\n", label, symbol, displayPath(workspaceRoot, overlap.ChangedFile), overlap.Dependency, displayPath(workspaceRoot, overlap.DependentFile))
 	}
 }
 

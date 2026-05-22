@@ -48,6 +48,8 @@ Current first pass:
 - `pane analyze symbols|deps <file>` exposes this through the Go CLI.
 - `pane analyze index <path...>` persists symbols and dependency edges in SQLite.
 - `pane analyze dependents <target>` queries persisted dependency edges for downstream files.
+- The daemon also incrementally re-indexes supported source files from file watcher events.
+- Board, summary, and git preflight use recent file activity plus persisted semantic data to surface first-pass semantic overlaps.
 
 The subprocess boundary is intentional for the scaffold: it avoids CGo/FFI complexity and keeps Rust analysis independently testable. A later V3 phase can revisit FFI if latency requires it.
 
@@ -118,7 +120,8 @@ Responsibilities:
 - handle CLI requests
 - generate board and summary views
 - run file watchers
-- evaluate git preflight risk
+- incrementally index changed source files for semantic analysis
+- evaluate git preflight risk, including first-pass semantic overlap warnings
 - maintain activity/history/state APIs
 
 The daemon is what makes Pane shared memory rather than a collection of disconnected commands.

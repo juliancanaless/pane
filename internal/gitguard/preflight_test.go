@@ -42,6 +42,25 @@ func TestPreflightWarnsForFileOverlap(t *testing.T) {
 	}
 }
 
+func TestPreflightWarnsForSemanticOverlap(t *testing.T) {
+	result := Preflight(PreflightInput{
+		Intent:         Intent{Watched: true, Subcommand: "merge"},
+		CurrentSession: session.Session{ID: "session-a", Branch: "main"},
+		ActiveSessions: []session.Session{{ID: "session-a", Branch: "main"}, {ID: "session-b", Branch: "feature"}},
+		SemanticOverlaps: []SemanticOverlap{{
+			PeerSessionID: "session-b",
+			ChangedFile:   "crypto/token.go",
+			DependentFile: "auth/handler.go",
+			Symbol:        "ValidateToken",
+			Dependency:    "github.com/example/project/crypto",
+			Confidence:    0.9,
+		}},
+	})
+	if len(result.Warnings) == 0 || !strings.Contains(result.Warnings[0], "depends on ValidateToken") {
+		t.Fatalf("expected semantic overlap warning, got %#v", result.Warnings)
+	}
+}
+
 func TestPreflightNoWarningWithoutOverlap(t *testing.T) {
 	result := Preflight(PreflightInput{
 		Intent:         Parse([]string{"commit", "-m", "wip"}),

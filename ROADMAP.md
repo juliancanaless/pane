@@ -190,6 +190,8 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 ### V3.3 — Semantic overlap and preflight
 
+**Status:** first pass implemented.
+
 **Why:** File-level overlap is crude. "Two sessions touched `auth.ts`" is less useful than "Session 1 changed `validateToken()` return type and Session 2 is calling it with the old signature."
 
 **What:**
@@ -198,7 +200,7 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 - Feed semantic overlap into git preflight and board
 - Determine relevance threshold: not every symbol change matters to every session
 
-**Exit criteria:** `pane board` shows "Session 1 changed `validateToken()` signature — Session 2's working set depends on it" instead of just "overlap in auth.ts".
+**Exit criteria:** `pane board` shows "Session 1 changed `validateToken()` signature — Session 2's working set depends on it" instead of just "overlap in auth.ts" — first pass done for persisted import/use/require edges, surfaced in board, summary, and git preflight.
 
 ### V3.4 — Temporal decay and summarization
 

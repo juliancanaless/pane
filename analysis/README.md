@@ -65,7 +65,7 @@ Dependency output shape:
 }
 ```
 
-`pane analyze index <path...>` persists symbols and dependency edges into SQLite. `pane analyze dependents <target>` queries the persisted graph for files that depend on a module/path/symbol target.
+`pane analyze index <path...>` persists symbols and dependency edges into SQLite. `pane analyze dependents <target>` queries the persisted graph for files that depend on a module/path/symbol target. The daemon also uses this persisted graph, plus incremental watcher-triggered indexing, to surface first-pass semantic overlaps in board, summary, and git preflight.
 
 ## Current language support
 
@@ -74,4 +74,4 @@ Dependency output shape:
 - Rust (`.rs`)
 - TypeScript (`.ts`, `.tsx`)
 
-Dependency extraction is intentionally first-pass: imports/use/require edges are captured before deeper cross-language reference resolution and semantic warnings in later V3 work.
+Dependency extraction is intentionally first-pass: imports/use/require edges are captured before deeper cross-language reference resolution and signature-diffing in later V3 work.

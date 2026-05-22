@@ -6,19 +6,30 @@ import (
 )
 
 type StartupSummary struct {
-	WorkspaceRoot string
-	Current       SessionLine
-	Peers         []SessionLine
-	Coordination  Coordination
-	RecentFiles   []string
-	Lineage       Lineage
-	Overlaps      []OverlapInfo
+	WorkspaceRoot    string
+	Current          SessionLine
+	Peers            []SessionLine
+	Coordination     Coordination
+	RecentFiles      []string
+	Lineage          Lineage
+	Overlaps         []OverlapInfo
+	SemanticOverlaps []SemanticOverlapInfo
 }
 
 type OverlapInfo struct {
 	PeerSessionID string
 	PeerName      string
 	SharedFiles   []string
+}
+
+type SemanticOverlapInfo struct {
+	PeerSessionID string
+	PeerName      string
+	ChangedFile   string
+	DependentFile string
+	Symbol        string
+	Dependency    string
+	Confidence    float64
 }
 
 func HistoryFromSessions(sessions []session.Session) []SessionLine {

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -72,6 +73,53 @@ func (s AnalysisStore) UpsertFile(ctx context.Context, analysis FileAnalysis) er
 	return tx.Commit()
 }
 
+func (s AnalysisStore) SymbolsByFile(ctx context.Context, workspaceRoot string, files []string) (map[string][]AnalysisSymbol, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	query := `SELECT file, name, kind, start_line, end_line FROM analysis_symbols WHERE workspace_root = ? AND file IN (` + placeholders(len(files)) + `) ORDER BY file, start_line`
+	args := append([]any{workspaceRoot}, stringsToAny(files)...)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string][]AnalysisSymbol)
+	for rows.Next() {
+		var file string
+		var symbol AnalysisSymbol
+		if err := rows.Scan(&file, &symbol.Name, &symbol.Kind, &symbol.StartLine, &symbol.EndLine); err != nil {
+			return nil, err
+		}
+		result[file] = append(result[file], symbol)
+	}
+	return result, rows.Err()
+}
+
+func (s AnalysisStore) EdgesBySourceFiles(ctx context.Context, workspaceRoot string, files []string) ([]DependencyEdge, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	query := `SELECT source_file, target, target_symbol, kind, confidence FROM dependency_edges WHERE workspace_root = ? AND source_file IN (` + placeholders(len(files)) + `) ORDER BY source_file, confidence DESC`
+	args := append([]any{workspaceRoot}, stringsToAny(files)...)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var edges []DependencyEdge
+	for rows.Next() {
+		var edge DependencyEdge
+		if err := rows.Scan(&edge.SourceFile, &edge.Target, &edge.TargetSymbol, &edge.Kind, &edge.Confidence); err != nil {
+			return nil, err
+		}
+		edges = append(edges, edge)
+	}
+	return edges, rows.Err()
+}
+
 func (s AnalysisStore) Dependents(ctx context.Context, workspaceRoot, target, targetSymbol string) ([]Dependent, error) {
 	query := `SELECT source_file, target, target_symbol, kind, confidence FROM dependency_edges WHERE workspace_root = ? AND (target = ? OR target_symbol = ? OR target LIKE ?) ORDER BY confidence DESC, source_file`
 	rows, err := s.db.QueryContext(ctx, query, workspaceRoot, target, targetSymbol, "%"+target+"%")
@@ -89,4 +137,20 @@ func (s AnalysisStore) Dependents(ctx context.Context, workspaceRoot, target, ta
 		dependents = append(dependents, dep)
 	}
 	return dependents, rows.Err()
+}
+
+func placeholders(count int) string {
+	values := make([]string, count)
+	for i := range values {
+		values[i] = "?"
+	}
+	return strings.Join(values, ",")
+}
+
+func stringsToAny(values []string) []any {
+	args := make([]any, 0, len(values))
+	for _, value := range values {
+		args = append(args, value)
+	}
+	return args
 }

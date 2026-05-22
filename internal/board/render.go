@@ -70,6 +70,19 @@ func Render(value Board, now time.Time) string {
 		}
 	}
 
+	if len(value.SemanticOverlaps) > 0 {
+		fmt.Fprintf(&out, "\nSemantic overlap:\n")
+		for _, overlap := range value.SemanticOverlaps {
+			source := sessionDisplayName(value.Sessions, overlap.SourceSession)
+			dependent := sessionDisplayName(value.Sessions, overlap.DependentSession)
+			symbol := overlap.Symbol
+			if symbol == "" {
+				symbol = overlap.Dependency
+			}
+			fmt.Fprintf(&out, "  ⚠️  %s changed %s in %s; %s depends via %s in %s\n", source, symbol, displayPath(value.WorkspaceRoot, overlap.ChangedFile), dependent, overlap.Dependency, displayPath(value.WorkspaceRoot, overlap.DependentFile))
+		}
+	}
+
 	if len(value.RecentGitEvents) > 0 {
 		fmt.Fprintf(&out, "\nRecent git:\n")
 		for _, event := range value.RecentGitEvents {
@@ -82,6 +95,21 @@ func Render(value Board, now time.Time) string {
 	}
 
 	return out.String()
+}
+
+func sessionDisplayName(sessions []Session, id string) string {
+	for _, item := range sessions {
+		if item.ID != id {
+			continue
+		}
+		if item.Name != "" {
+			return item.Name
+		}
+		if item.ShortID != "" {
+			return item.ShortID
+		}
+	}
+	return id
 }
 
 func coordinationSummary(unread, awaiting int) string {

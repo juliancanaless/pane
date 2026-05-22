@@ -206,6 +206,83 @@ func TestBoardAndSummaryShowOverlap(t *testing.T) {
 	}
 }
 
+func TestBoardSummaryAndPreflightShowSemanticOverlap(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
+	d.analysisStore = store.NewAnalysisStore(db)
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {})
+	initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {})
+	if !initA.OK || !initB.OK {
+		t.Fatalf("init failed: %#v %#v", initA, initB)
+	}
+	sessionA := initA.Payload["session_id"].(string)
+	sessionB := initB.Payload["session_id"].(string)
+
+	if err := d.analysisStore.UpsertFile(context.Background(), store.FileAnalysis{
+		WorkspaceRoot: "/workspace",
+		File:          "crypto/token.go",
+		Language:      "go",
+		Symbols:       []store.AnalysisSymbol{{Name: "ValidateToken", Kind: "function", StartLine: 3, EndLine: 7}},
+	}); err != nil {
+		t.Fatalf("upsert changed file analysis: %v", err)
+	}
+	if err := d.analysisStore.UpsertFile(context.Background(), store.FileAnalysis{
+		WorkspaceRoot: "/workspace",
+		File:          "auth/handler.go",
+		Language:      "go",
+		Dependencies:  []store.DependencyEdge{{Target: "github.com/example/project/crypto", Kind: "import", Confidence: 0.9}},
+	}); err != nil {
+		t.Fatalf("upsert dependent file analysis: %v", err)
+	}
+
+	now := time.Now().Unix()
+	for _, fa := range []struct {
+		sid, path string
+	}{
+		{sessionA, "/workspace/crypto/token.go"},
+		{sessionB, "/workspace/auth/handler.go"},
+	} {
+		if err := d.activityStore.Save(context.Background(), activity.FileActivity{SessionID: fa.sid, Path: fa.path, EventType: activity.EventModified, Attribution: activity.AttributionHigh, Timestamp: now}); err != nil {
+			t.Fatalf("save activity: %v", err)
+		}
+	}
+
+	boardResp := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/workspace"}}, func() {})
+	if !boardResp.OK {
+		t.Fatalf("board failed: %#v", boardResp)
+	}
+	boardText := boardResp.Payload["text"].(string)
+	if !strings.Contains(boardText, "Semantic overlap:") || !strings.Contains(boardText, "ValidateToken") || !strings.Contains(boardText, "auth/handler.go") {
+		t.Fatalf("expected semantic overlap in board output:\n%s", boardText)
+	}
+
+	summaryResp := d.Handle(protocol.Request{Type: protocol.RequestGetSummary, Payload: envA}, func() {})
+	if !summaryResp.OK {
+		t.Fatalf("summary failed: %#v", summaryResp)
+	}
+	summaryText := summaryResp.Payload["text"].(string)
+	if !strings.Contains(summaryText, "Semantic overlap:") || !strings.Contains(summaryText, "ValidateToken") {
+		t.Fatalf("expected semantic overlap in summary output:\n%s", summaryText)
+	}
+
+	preflightResp := d.Handle(protocol.Request{Type: protocol.RequestGitPreflight, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "args": []string{"merge", "main"}}}, func() {})
+	if !preflightResp.OK {
+		t.Fatalf("preflight failed: %#v", preflightResp)
+	}
+	joinedWarnings := strings.Join(preflightResp.Warnings, "\n")
+	if !strings.Contains(joinedWarnings, "depends on ValidateToken") {
+		t.Fatalf("expected semantic preflight warning, got %#v", preflightResp.Warnings)
+	}
+}
+
 func TestMessageHandlers(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

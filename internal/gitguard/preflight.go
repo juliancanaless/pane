@@ -7,15 +7,25 @@ import (
 )
 
 type PreflightInput struct {
-	Intent         Intent
-	CurrentSession session.Session
-	ActiveSessions []session.Session
-	FileOverlaps   []FileOverlap
+	Intent           Intent
+	CurrentSession   session.Session
+	ActiveSessions   []session.Session
+	FileOverlaps     []FileOverlap
+	SemanticOverlaps []SemanticOverlap
 }
 
 type FileOverlap struct {
 	PeerSessionID string
 	SharedFiles   []string
+}
+
+type SemanticOverlap struct {
+	PeerSessionID string
+	ChangedFile   string
+	DependentFile string
+	Symbol        string
+	Dependency    string
+	Confidence    float64
 }
 
 type PreflightResult struct {
@@ -29,6 +39,7 @@ func Preflight(input PreflightInput) PreflightResult {
 	}
 	warnings := branchWarnings(input)
 	warnings = append(warnings, fileOverlapWarnings(input)...)
+	warnings = append(warnings, semanticOverlapWarnings(input)...)
 	warnings = append(warnings, commandRiskWarning(input)...)
 	block := input.Intent.Forceful && sameBranchPeer(input)
 	if block {
@@ -78,6 +89,18 @@ func fileOverlapWarnings(input PreflightInput) []string {
 	return warnings
 }
 
+func semanticOverlapWarnings(input PreflightInput) []string {
+	var warnings []string
+	for _, overlap := range input.SemanticOverlaps {
+		symbol := overlap.Symbol
+		if symbol == "" {
+			symbol = overlap.Dependency
+		}
+		warnings = append(warnings, fmt.Sprintf("session %s has recent work in %s, which depends on %s changed by your work in %s", overlap.PeerSessionID, overlap.DependentFile, symbol, overlap.ChangedFile))
+	}
+	return warnings
+}
+
 func joinFiles(files []string, total int) string {
 	result := ""
 	for i, f := range files {
@@ -93,7 +116,7 @@ func joinFiles(files []string, total int) string {
 }
 
 func commandRiskWarning(input PreflightInput) []string {
-	if !sameBranchPeer(input) && len(input.FileOverlaps) == 0 {
+	if !sameBranchPeer(input) && len(input.FileOverlaps) == 0 && len(input.SemanticOverlaps) == 0 {
 		return nil
 	}
 	var risk string

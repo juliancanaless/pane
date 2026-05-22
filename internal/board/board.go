@@ -3,10 +3,11 @@ package board
 import "github.com/juliancanalez/pane/internal/session"
 
 type Board struct {
-	WorkspaceRoot   string
-	Sessions        []Session
-	Overlaps        []OverlapInfo
-	RecentGitEvents []GitEventInfo
+	WorkspaceRoot    string
+	Sessions         []Session
+	Overlaps         []OverlapInfo
+	SemanticOverlaps []SemanticOverlapInfo
+	RecentGitEvents  []GitEventInfo
 }
 
 type GitEventInfo struct {
@@ -20,6 +21,16 @@ type OverlapInfo struct {
 	SessionA    string
 	SessionB    string
 	SharedFiles []string
+}
+
+type SemanticOverlapInfo struct {
+	SourceSession    string
+	DependentSession string
+	ChangedFile      string
+	DependentFile    string
+	Symbol           string
+	Dependency       string
+	Confidence       float64
 }
 
 type Session struct {

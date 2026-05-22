@@ -8,11 +8,13 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juliancanalez/pane/internal/activity"
+	"github.com/juliancanalez/pane/internal/analysis"
 	"github.com/juliancanalez/pane/internal/board"
 	"github.com/juliancanalez/pane/internal/gitguard"
 	"github.com/juliancanalez/pane/internal/messages"
@@ -38,6 +40,7 @@ type Daemon struct {
 	activityStore store.FileActivityStore
 	gitEventStore store.GitEventStore
 	stateStore    store.AgentStateStore
+	analysisStore store.AnalysisStore
 	watchers      map[string]context.CancelFunc
 	watchersMu    sync.Mutex
 }
@@ -97,6 +100,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		d.activityStore = store.NewFileActivityStore(db)
 		d.gitEventStore = store.NewGitEventStore(db)
 		d.stateStore = store.NewAgentStateStore(db)
+		d.analysisStore = store.NewAnalysisStore(db)
 		defer db.Close()
 	}
 	if err := os.RemoveAll(d.config.SocketPath); err != nil {
@@ -398,6 +402,7 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	}
 	b := board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats)
 	b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
+	b.SemanticOverlaps = d.boardSemanticOverlaps(context.Background(), workspaceRoot, sessions)
 	b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot, sessions)
 	text := board.Render(b, time.Now())
 	return protocol.Success(map[string]any{"text": text})
@@ -432,6 +437,7 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	lineage := d.summaryLineage(context.Background(), workspaceRoot, current)
 	s := summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5), lineage)
 	s.Overlaps = d.summaryOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
+	s.SemanticOverlaps = d.summarySemanticOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
 	text := summary.Render(s, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
@@ -466,6 +472,7 @@ func (d *Daemon) recordWatchEvent(workspaceRoot string, event activity.WatchEven
 	if rel, err := filepath.Rel(workspaceRoot, path); err == nil && !strings.HasPrefix(rel, "..") {
 		path = rel
 	}
+	d.indexAnalysisFile(workspaceRoot, path)
 	for _, owner := range attributeSessions(sessions, event.Path) {
 		_ = d.activityStore.Save(context.Background(), activity.FileActivity{
 			SessionID:   owner.Session.ID,
@@ -475,6 +482,58 @@ func (d *Daemon) recordWatchEvent(workspaceRoot string, event activity.WatchEven
 			Timestamp:   event.Time.Unix(),
 		})
 	}
+}
+
+func (d *Daemon) indexAnalysisFile(workspaceRoot, relativePath string) {
+	if d.analysisStore == (store.AnalysisStore{}) || !isSupportedAnalysisPath(relativePath) {
+		return
+	}
+	file := filepath.Join(workspaceRoot, relativePath)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		client := analysis.Client{}
+		table, err := client.Symbols(ctx, file)
+		if err != nil {
+			return
+		}
+		graph, err := client.Dependencies(ctx, file)
+		if err != nil {
+			return
+		}
+		_ = d.analysisStore.UpsertFile(context.Background(), store.FileAnalysis{
+			WorkspaceRoot: workspaceRoot,
+			File:          filepath.ToSlash(relativePath),
+			Language:      table.Language,
+			Symbols:       analysisSymbolsForStore(table.Symbols),
+			Dependencies:  analysisDependenciesForStore(graph.Dependencies),
+		})
+	}()
+}
+
+func isSupportedAnalysisPath(path string) bool {
+	switch filepath.Ext(path) {
+	case ".go", ".py", ".rs", ".ts", ".tsx":
+		return true
+	default:
+		return false
+	}
+}
+
+func analysisSymbolsForStore(symbols []analysis.Symbol) []store.AnalysisSymbol {
+	out := make([]store.AnalysisSymbol, 0, len(symbols))
+	for _, symbol := range symbols {
+		out = append(out, store.AnalysisSymbol{Name: symbol.Name, Kind: symbol.Kind, StartLine: symbol.StartLine, EndLine: symbol.EndLine})
+	}
+	return out
+}
+
+func analysisDependenciesForStore(dependencies []analysis.Dependency) []store.DependencyEdge {
+	out := make([]store.DependencyEdge, 0, len(dependencies))
+	for _, dep := range dependencies {
+		out = append(out, store.DependencyEdge{Target: dep.Target, TargetSymbol: dep.TargetSymbol, Kind: dep.Kind, Confidence: dep.Confidence})
+	}
+	return out
 }
 
 type attributedSession struct {
@@ -630,6 +689,238 @@ func (d *Daemon) gitPreflightOverlaps(ctx context.Context, workspaceRoot, curren
 		}
 	}
 	return result
+}
+
+func (d *Daemon) boardSemanticOverlaps(ctx context.Context, workspaceRoot string, sessions []session.Session) []board.SemanticOverlapInfo {
+	impacts := d.semanticImpacts(ctx, workspaceRoot, sessions)
+	result := make([]board.SemanticOverlapInfo, 0, len(impacts))
+	for _, impact := range impacts {
+		result = append(result, board.SemanticOverlapInfo{
+			SourceSession:    impact.SourceSession,
+			DependentSession: impact.DependentSession,
+			ChangedFile:      impact.ChangedFile,
+			DependentFile:    impact.DependentFile,
+			Symbol:           impact.Symbol,
+			Dependency:       impact.Dependency,
+			Confidence:       impact.Confidence,
+		})
+	}
+	return result
+}
+
+func (d *Daemon) summarySemanticOverlaps(ctx context.Context, workspaceRoot, currentSessionID string, sessions []session.Session) []summary.SemanticOverlapInfo {
+	impacts := d.semanticImpacts(ctx, workspaceRoot, sessions)
+	nameMap := sessionNameMap(sessions)
+	var result []summary.SemanticOverlapInfo
+	for _, impact := range impacts {
+		if impact.SourceSession == currentSessionID {
+			result = append(result, summary.SemanticOverlapInfo{PeerSessionID: impact.DependentSession, PeerName: nameMap[impact.DependentSession], ChangedFile: impact.ChangedFile, DependentFile: impact.DependentFile, Symbol: impact.Symbol, Dependency: impact.Dependency, Confidence: impact.Confidence})
+		} else if impact.DependentSession == currentSessionID {
+			result = append(result, summary.SemanticOverlapInfo{PeerSessionID: impact.SourceSession, PeerName: nameMap[impact.SourceSession], ChangedFile: impact.ChangedFile, DependentFile: impact.DependentFile, Symbol: impact.Symbol, Dependency: impact.Dependency, Confidence: impact.Confidence})
+		}
+	}
+	return result
+}
+
+func (d *Daemon) gitPreflightSemanticOverlaps(ctx context.Context, workspaceRoot, currentSessionID string, sessions []session.Session) []gitguard.SemanticOverlap {
+	impacts := d.semanticImpacts(ctx, workspaceRoot, sessions)
+	var result []gitguard.SemanticOverlap
+	for _, impact := range impacts {
+		if impact.SourceSession == currentSessionID {
+			result = append(result, gitguard.SemanticOverlap{PeerSessionID: impact.DependentSession, ChangedFile: impact.ChangedFile, DependentFile: impact.DependentFile, Symbol: impact.Symbol, Dependency: impact.Dependency, Confidence: impact.Confidence})
+		}
+	}
+	return result
+}
+
+type semanticImpact struct {
+	SourceSession    string
+	DependentSession string
+	ChangedFile      string
+	DependentFile    string
+	Symbol           string
+	Dependency       string
+	Confidence       float64
+}
+
+func (d *Daemon) semanticImpacts(ctx context.Context, workspaceRoot string, sessions []session.Session) []semanticImpact {
+	if d.activityStore == (store.FileActivityStore{}) || d.analysisStore == (store.AnalysisStore{}) {
+		return nil
+	}
+	recent, err := d.activityStore.RecentByWorkspace(ctx, workspaceRoot, time.Now().Add(-15*time.Minute).Unix(), 250)
+	if err != nil || len(recent) == 0 {
+		return nil
+	}
+	sessionFiles := recentFilesBySession(workspaceRoot, recent, activeSessionIDs(sessions))
+	allFiles := uniqueFiles(sessionFiles)
+	symbolsByFile, err := d.analysisStore.SymbolsByFile(ctx, workspaceRoot, allFiles)
+	if err != nil {
+		return nil
+	}
+	if len(symbolsByFile) == 0 {
+		return nil
+	}
+
+	var impacts []semanticImpact
+	seen := make(map[string]bool)
+	for sourceSession, changedFiles := range sessionFiles {
+		for dependentSession, dependentFiles := range sessionFiles {
+			if sourceSession == dependentSession {
+				continue
+			}
+			edges, err := d.analysisStore.EdgesBySourceFiles(ctx, workspaceRoot, dependentFiles)
+			if err != nil || len(edges) == 0 {
+				continue
+			}
+			for _, changedFile := range changedFiles {
+				matches := matchingImpacts(sourceSession, dependentSession, changedFile, symbolsByFile[changedFile], edges)
+				for _, impact := range matches {
+					key := strings.Join([]string{impact.SourceSession, impact.DependentSession, impact.ChangedFile, impact.DependentFile, impact.Symbol, impact.Dependency}, "\x00")
+					if seen[key] {
+						continue
+					}
+					seen[key] = true
+					impacts = append(impacts, impact)
+				}
+			}
+		}
+	}
+	sort.Slice(impacts, func(i, j int) bool {
+		if impacts[i].Confidence != impacts[j].Confidence {
+			return impacts[i].Confidence > impacts[j].Confidence
+		}
+		return impacts[i].ChangedFile < impacts[j].ChangedFile
+	})
+	if len(impacts) > 10 {
+		return impacts[:10]
+	}
+	return impacts
+}
+
+func recentFilesBySession(workspaceRoot string, recent []activity.FileActivity, activeSessions map[string]bool) map[string][]string {
+	seen := make(map[string]map[string]bool)
+	for _, item := range recent {
+		if !activeSessions[item.SessionID] {
+			continue
+		}
+		path := normalizeWorkspacePath(workspaceRoot, item.Path)
+		if path == "" {
+			continue
+		}
+		if seen[item.SessionID] == nil {
+			seen[item.SessionID] = make(map[string]bool)
+		}
+		seen[item.SessionID][path] = true
+	}
+	result := make(map[string][]string, len(seen))
+	for sessionID, files := range seen {
+		for file := range files {
+			result[sessionID] = append(result[sessionID], file)
+		}
+		sort.Strings(result[sessionID])
+	}
+	return result
+}
+
+func activeSessionIDs(sessions []session.Session) map[string]bool {
+	ids := make(map[string]bool, len(sessions))
+	for _, item := range sessions {
+		ids[item.ID] = true
+	}
+	return ids
+}
+
+func uniqueFiles(sessionFiles map[string][]string) []string {
+	seen := make(map[string]bool)
+	for _, files := range sessionFiles {
+		for _, file := range files {
+			seen[file] = true
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for file := range seen {
+		result = append(result, file)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func normalizeWorkspacePath(workspaceRoot, path string) string {
+	if path == "" {
+		return ""
+	}
+	if filepath.IsAbs(path) {
+		if rel, err := filepath.Rel(workspaceRoot, path); err == nil && rel != "." && !strings.HasPrefix(rel, "..") {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return filepath.ToSlash(path)
+}
+
+func matchingImpacts(sourceSession, dependentSession, changedFile string, symbols []store.AnalysisSymbol, edges []store.DependencyEdge) []semanticImpact {
+	var impacts []semanticImpact
+	symbolNames := make(map[string]bool)
+	for _, symbol := range symbols {
+		symbolNames[symbol.Name] = true
+	}
+	for _, edge := range edges {
+		if dependencyTargetsFile(edge.Target, changedFile) {
+			impacts = append(impacts, semanticImpact{SourceSession: sourceSession, DependentSession: dependentSession, ChangedFile: changedFile, DependentFile: edge.SourceFile, Symbol: firstSymbolName(symbols), Dependency: edge.Target, Confidence: edge.Confidence})
+			continue
+		}
+		if edge.TargetSymbol != "" && symbolNames[edge.TargetSymbol] {
+			impacts = append(impacts, semanticImpact{SourceSession: sourceSession, DependentSession: dependentSession, ChangedFile: changedFile, DependentFile: edge.SourceFile, Symbol: edge.TargetSymbol, Dependency: edge.Target, Confidence: edge.Confidence})
+		}
+	}
+	return impacts
+}
+
+func dependencyTargetsFile(target, changedFile string) bool {
+	if target == "" || changedFile == "" {
+		return false
+	}
+	candidates := dependencyCandidates(changedFile)
+	for _, candidate := range candidates {
+		if target == candidate || strings.HasSuffix(target, "/"+candidate) || strings.HasSuffix(candidate, "/"+target) {
+			return true
+		}
+	}
+	return false
+}
+
+func dependencyCandidates(file string) []string {
+	withoutExt := strings.TrimSuffix(file, filepath.Ext(file))
+	dir := filepath.Dir(file)
+	base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
+	values := []string{file, withoutExt, dir, base}
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.Trim(value, ".")
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		result = append(result, filepath.ToSlash(value))
+	}
+	return result
+}
+
+func firstSymbolName(symbols []store.AnalysisSymbol) string {
+	if len(symbols) == 0 {
+		return ""
+	}
+	return symbols[0].Name
+}
+
+func sessionNameMap(sessions []session.Session) map[string]string {
+	nameMap := make(map[string]string, len(sessions))
+	for _, s := range sessions {
+		if s.Name != "" {
+			nameMap[s.ID] = s.Name
+		}
+	}
+	return nameMap
 }
 
 func (d *Daemon) boardActivityStats(ctx context.Context, sessions []session.Session) (map[string]board.ActivityStats, error) {
@@ -856,10 +1147,11 @@ func (d *Daemon) handleGitPreflight(request protocol.Request) protocol.Response 
 		return protocol.Failure(err.Error())
 	}
 	result := gitguard.Preflight(gitguard.PreflightInput{
-		Intent:         intent,
-		CurrentSession: current,
-		ActiveSessions: sessions,
-		FileOverlaps:   d.gitPreflightOverlaps(context.Background(), current.WorkspaceRoot, current.ID),
+		Intent:           intent,
+		CurrentSession:   current,
+		ActiveSessions:   sessions,
+		FileOverlaps:     d.gitPreflightOverlaps(context.Background(), current.WorkspaceRoot, current.ID),
+		SemanticOverlaps: d.gitPreflightSemanticOverlaps(context.Background(), current.WorkspaceRoot, current.ID, sessions),
 	})
 	return protocol.Response{OK: true, Warnings: result.Warnings, Block: result.Block}
 }

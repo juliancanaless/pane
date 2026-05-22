@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1 and V3.2 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, a Go subprocess client, SQLite persistence for `analysis_symbols` and `dependency_edges`, and CLI commands to index and query dependents.
+**V3.1, V3.2, and V3.3 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, and semantic-overlap warnings in board, summary, and git preflight.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -689,9 +689,33 @@ Completed:
 
 Still needed:
 
-- daemon-triggered incremental indexing from file watcher events and startup scans
+- startup/background workspace scans for semantic indexes beyond watcher-triggered incremental updates
 - richer target resolution from import paths to concrete workspace files
-- deeper symbol-level reference extraction and signature-change detection for V3.3
+- deeper symbol-level reference extraction and signature-change detection beyond import/use/require dependency relevance
+
+### Phase 22 — Semantic overlap and preflight
+
+Status: first pass implemented (V3.3).
+
+Goal:
+
+Use persisted semantic analysis to surface when one session's changed file declares symbols or modules that another session's recent files depend on.
+
+Completed:
+
+1. Added daemon semantic impact computation from recent file activity plus persisted symbols/dependency edges.
+2. Added first-pass dependency-to-file matching using import path suffixes, file directories, file basenames, and imported symbol names.
+3. Added daemon-triggered incremental indexing for supported source files when watcher events arrive.
+4. Added semantic overlap sections to `pane board` and `pane summary`.
+5. Added semantic overlap warnings to git preflight.
+6. Added store, daemon, and gitguard tests for semantic overlap behavior.
+
+Still needed:
+
+- semantic diffing between pre-change and post-change symbol signatures
+- deeper symbol-level reference extraction, not just import/use/require edges
+- richer import resolution per language/package manager
+- latency/noise dogfooding on real multi-pane sessions
 
 ## Testing plan
 
