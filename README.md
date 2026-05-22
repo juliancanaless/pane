@@ -135,6 +135,7 @@ The repository contains:
 - Rust/tree-sitter analyzer for symbols and first-pass dependency edges
 - persisted `analysis_symbols` and `dependency_edges` tables with `pane analyze index` / `pane analyze dependents`
 - first-pass semantic overlap warnings in board, summary, and git preflight
+- first-pass temporal decay for file activity so long-running sessions summarize older work
 
 The current focus is V3: semantic intelligence through a Rust/tree-sitter analysis engine. See [`ROADMAP.md`](ROADMAP.md) for the full guided plan.
 

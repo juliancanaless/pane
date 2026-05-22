@@ -39,6 +39,9 @@ func Render(value Board, now time.Time) string {
 		if len(item.HotDirectories) > 0 {
 			fmt.Fprintf(&out, "  Hot dirs: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, item.HotDirectories), ", "))
 		}
+		if len(item.ActivitySummaries) > 0 {
+			fmt.Fprintf(&out, "  Activity summary: %s\n", strings.Join(item.ActivitySummaries, "; "))
+		}
 		if item.UnreadMessages > 0 || item.AwaitingReplies > 0 {
 			fmt.Fprintf(&out, "  Coordination: %s\n", coordinationSummary(item.UnreadMessages, item.AwaitingReplies))
 		}

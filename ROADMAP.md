@@ -204,6 +204,8 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 ### V3.4 — Temporal decay and summarization
 
+**Status:** first pass implemented.
+
 **Why:** As sessions run longer, raw event history becomes noise. The vision doc describes events decaying from full detail to summary to forgotten.
 
 **What:**
@@ -212,7 +214,7 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 - Board and summary adapt output density based on decay tier
 - History queries respect decay tiers
 
-**Exit criteria:** A 4-hour session's board is still readable — recent events are detailed, older events are compressed summaries.
+**Exit criteria:** A 4-hour session's board is still readable — recent events are detailed, older events are compressed summaries — first pass done for file activity decay in board, summary, and history.
 
 ### V3 dogfood checklist
 

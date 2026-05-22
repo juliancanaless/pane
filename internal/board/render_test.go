@@ -57,6 +57,21 @@ func TestRenderBoardWithOverlap(t *testing.T) {
 	}
 }
 
+func TestRenderBoardWithActivitySummary(t *testing.T) {
+	value := Board{
+		WorkspaceRoot: "/workspace",
+		Sessions: []Session{
+			{ID: "session-aaa", ShortID: "aaa", Status: session.StatusActive, Branch: "main", CWD: "/workspace", LastIntent: "long refactor", LastSeenAt: 100,
+				ActivitySummaries: []string{"4 files in summary tier (5m–2h): internal/store"}},
+		},
+	}
+
+	got := Render(value, time.Unix(130, 0))
+	if !strings.Contains(got, "Activity summary: 4 files in summary tier (5m–2h): internal/store") {
+		t.Fatalf("Render output missing activity summary:\n%s", got)
+	}
+}
+
 func TestRenderBoardWithHotDirsAndGitEvents(t *testing.T) {
 	value := Board{
 		WorkspaceRoot: "/workspace",

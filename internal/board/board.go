@@ -34,18 +34,19 @@ type SemanticOverlapInfo struct {
 }
 
 type Session struct {
-	ID              string
-	ShortID         string
-	Name            string
-	Status          session.Status
-	Branch          string
-	CWD             string
-	LastIntent      string
-	LastSeenAt      int64
-	UnreadMessages  int
-	AwaitingReplies int
-	RecentFiles     []string
-	HotDirectories  []string
+	ID                string
+	ShortID           string
+	Name              string
+	Status            session.Status
+	Branch            string
+	CWD               string
+	LastIntent        string
+	LastSeenAt        int64
+	UnreadMessages    int
+	AwaitingReplies   int
+	RecentFiles       []string
+	HotDirectories    []string
+	ActivitySummaries []string
 }
 
 func FromSessions(workspaceRoot string, sessions []session.Session) Board {
@@ -62,18 +63,19 @@ func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, mes
 		messages := messageStats[value.ID]
 		activity := activityStats[value.ID]
 		items = append(items, Session{
-			ID:              value.ID,
-			ShortID:         session.ShortID(value.ID),
-			Name:            value.Name,
-			Status:          value.Status,
-			Branch:          value.Branch,
-			CWD:             value.CWD,
-			LastIntent:      value.LastIntent,
-			LastSeenAt:      value.LastSeenAt,
-			UnreadMessages:  messages.UnreadMessages,
-			AwaitingReplies: messages.AwaitingReplies,
-			RecentFiles:     activity.RecentFiles,
-			HotDirectories:  activity.HotDirectories,
+			ID:                value.ID,
+			ShortID:           session.ShortID(value.ID),
+			Name:              value.Name,
+			Status:            value.Status,
+			Branch:            value.Branch,
+			CWD:               value.CWD,
+			LastIntent:        value.LastIntent,
+			LastSeenAt:        value.LastSeenAt,
+			UnreadMessages:    messages.UnreadMessages,
+			AwaitingReplies:   messages.AwaitingReplies,
+			RecentFiles:       activity.RecentFiles,
+			HotDirectories:    activity.HotDirectories,
+			ActivitySummaries: activity.ActivitySummaries,
 		})
 	}
 	return Board{WorkspaceRoot: workspaceRoot, Sessions: items}
@@ -85,6 +87,7 @@ type MessageStats struct {
 }
 
 type ActivityStats struct {
-	RecentFiles    []string
-	HotDirectories []string
+	RecentFiles       []string
+	HotDirectories    []string
+	ActivitySummaries []string
 }

@@ -64,6 +64,19 @@ func TestRenderSummaryWithOverlap(t *testing.T) {
 	}
 }
 
+func TestRenderSummaryWithActivitySummary(t *testing.T) {
+	value := StartupSummary{
+		WorkspaceRoot:     "/workspace",
+		Current:           SessionLine{SessionID: "session-a", Status: session.StatusActive, CWD: "/workspace"},
+		ActivitySummaries: []string{"3 files compressed (2h–72h): internal/daemon"},
+	}
+
+	got := Render(value, time.Unix(130, 0))
+	if !strings.Contains(got, "Activity summary: 3 files compressed (2h–72h): internal/daemon") {
+		t.Fatalf("Render output missing activity summary:\n%s", got)
+	}
+}
+
 func TestRenderSummaryWithoutPeers(t *testing.T) {
 	value := StartupSummary{WorkspaceRoot: "/workspace", Current: SessionLine{SessionID: "session-a", Status: session.StatusActive}}
 	got := Render(value, time.Unix(130, 0))

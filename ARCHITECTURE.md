@@ -197,10 +197,8 @@ Current board data:
 - last seen
 - unread message count
 - awaiting reply count
-- recent files
-
-Future board data:
-
+- recent files in the full-detail decay tier (<5m)
+- decayed activity summaries for older file activity (5m–72h)
 - hot directories
 - overlaps
 - recent guardrail events
@@ -216,9 +214,9 @@ It is narrower than `pane board` and oriented around:
 - who else is nearby?
 - what context should I load before acting?
 
-Current summaries include current session, peer sessions, unread messages, awaiting reply counts, recent files for the current session, and first-pass continuity context from parent/recent sessions.
+Current summaries include current session, peer sessions, unread messages, awaiting reply counts, full-detail recent files for the current session, decayed activity summaries, and first-pass continuity context from parent/recent sessions.
 
-Future summaries should include unresolved decisions, hot directories, overlap, lineage chains, and richer activity history.
+Future summaries should include unresolved decisions, richer lineage chains, and persisted natural-language activity summaries.
 
 ### Messages layer: `internal/messages`
 

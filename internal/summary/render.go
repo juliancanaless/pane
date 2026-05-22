@@ -22,6 +22,9 @@ func Render(value StartupSummary, now time.Time) string {
 	if len(value.RecentFiles) > 0 {
 		fmt.Fprintf(&out, "  Recent files: %s\n", strings.Join(displayPaths(value.WorkspaceRoot, value.RecentFiles), ", "))
 	}
+	if len(value.ActivitySummaries) > 0 {
+		fmt.Fprintf(&out, "  Activity summary: %s\n", strings.Join(value.ActivitySummaries, "; "))
+	}
 
 	renderCoordination(&out, value.Coordination, now)
 	renderLineage(&out, value.Lineage, now)

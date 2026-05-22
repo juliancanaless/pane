@@ -6,14 +6,15 @@ import (
 )
 
 type StartupSummary struct {
-	WorkspaceRoot    string
-	Current          SessionLine
-	Peers            []SessionLine
-	Coordination     Coordination
-	RecentFiles      []string
-	Lineage          Lineage
-	Overlaps         []OverlapInfo
-	SemanticOverlaps []SemanticOverlapInfo
+	WorkspaceRoot     string
+	Current           SessionLine
+	Peers             []SessionLine
+	Coordination      Coordination
+	RecentFiles       []string
+	ActivitySummaries []string
+	Lineage           Lineage
+	Overlaps          []OverlapInfo
+	SemanticOverlaps  []SemanticOverlapInfo
 }
 
 type OverlapInfo struct {

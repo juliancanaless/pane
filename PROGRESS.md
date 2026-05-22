@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, and V3.3 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, and semantic-overlap warnings in board, summary, and git preflight.
+**V3.1, V3.2, V3.3, and V3.4 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, and first-pass activity decay so older file activity compresses instead of flooding output.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -724,6 +724,28 @@ Still needed:
 Worktree support does not invalidate prior phases. V1/V2/V3 are workspace-root scoped and remain useful inside one checkout. The missing Done-quality behavior is recognizing that multiple workspace roots may be sibling Git worktrees of the same repository.
 
 Future work should add repository identity alongside `workspace_root`, then use it for cross-worktree board/history aggregation, git preflight branch-risk checks, and semantic overlap normalization by repo-relative path.
+
+### Phase 23 — Temporal decay and summarization
+
+Status: first pass implemented (V3.4).
+
+Goal:
+
+Keep board, summary, and history readable during long-running sessions by decaying raw file activity into progressively denser summaries.
+
+Completed:
+
+1. Added an activity decay digest with tiers: full detail (<5m), summary (5m–2h), compressed (2h–72h), and ignored/pruned beyond 72h.
+2. Board now shows only full-detail recent files plus compact activity summaries for older active-session files.
+3. Summary now uses the same decay tiers for the current session.
+4. History output includes decayed activity summaries when recent file activity exists for listed sessions.
+5. Added activity, board-render, and summary-render tests.
+
+Still needed:
+
+- persisted generated natural-language summaries rather than deterministic file/dir counts
+- decay-aware semantic overlap thresholds
+- user-tunable decay windows once real dogfood reveals preferred density
 
 ## Testing plan
 

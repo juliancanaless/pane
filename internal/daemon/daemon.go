@@ -343,7 +343,8 @@ func (d *Daemon) handleSessionHistory(request protocol.Request) protocol.Respons
 	if len(items) > 20 {
 		items = items[:20]
 	}
-	return protocol.Success(map[string]any{"text": renderHistory(workspaceRoot, items, time.Now())})
+	activitySummaries := d.historyActivitySummaries(context.Background(), items)
+	return protocol.Success(map[string]any{"text": renderHistory(workspaceRoot, items, activitySummaries, time.Now())})
 }
 
 func (d *Daemon) handleSessionIntent(request protocol.Request) protocol.Response {
@@ -429,13 +430,15 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
-	recentActivity, err := d.activityStore.RecentBySession(context.Background(), current.ID, time.Now().Add(-15*time.Minute).Unix(), 5)
+	recentActivity, err := d.activityStore.RecentBySession(context.Background(), current.ID, time.Now().Add(-activity.CompressedWindow).Unix(), 100)
 	if err != nil {
 		return protocol.Failure(err.Error())
 	}
+	activityDigest := activity.DecayActivities(recentActivity, time.Now(), 5, 3)
 	coordination := summary.Coordination{UnreadMessages: unread, AwaitingReplies: awaiting}
 	lineage := d.summaryLineage(context.Background(), workspaceRoot, current)
-	s := summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activity.RecentFiles(recentActivity, 5), lineage)
+	s := summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activityDigest.FullFiles, lineage)
+	s.ActivitySummaries = activityDigest.Lines()
 	s.Overlaps = d.summaryOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
 	s.SemanticOverlaps = d.summarySemanticOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
 	text := summary.Render(s, time.Now())
@@ -926,14 +929,15 @@ func sessionNameMap(sessions []session.Session) map[string]string {
 func (d *Daemon) boardActivityStats(ctx context.Context, sessions []session.Session) (map[string]board.ActivityStats, error) {
 	stats := make(map[string]board.ActivityStats, len(sessions))
 	for _, item := range sessions {
-		recent, err := d.activityStore.RecentBySession(ctx, item.ID, time.Now().Add(-15*time.Minute).Unix(), 10)
+		recent, err := d.activityStore.RecentBySession(ctx, item.ID, time.Now().Add(-activity.CompressedWindow).Unix(), 100)
 		if err != nil {
 			return nil, err
 		}
-		files := activity.RecentFiles(recent, 5)
+		digest := activity.DecayActivities(recent, time.Now(), 3, 3)
 		stats[item.ID] = board.ActivityStats{
-			RecentFiles:    files[:min(len(files), 3)],
-			HotDirectories: activity.HotDirectories(activity.RecentFiles(recent, 10), 3),
+			RecentFiles:       digest.FullFiles,
+			HotDirectories:    activity.HotDirectories(digest.FullFiles, 3),
+			ActivitySummaries: digest.Lines(),
 		}
 	}
 	return stats, nil
@@ -1225,7 +1229,29 @@ func filterSince(items []session.Session, since int64) []session.Session {
 	return filtered
 }
 
-func renderHistory(workspaceRoot string, items []session.Session, now time.Time) string {
+func (d *Daemon) historyActivitySummaries(ctx context.Context, items []session.Session) map[string][]string {
+	if d.activityStore == (store.FileActivityStore{}) {
+		return nil
+	}
+	result := make(map[string][]string, len(items))
+	for _, item := range items {
+		recent, err := d.activityStore.RecentBySession(ctx, item.ID, time.Now().Add(-activity.CompressedWindow).Unix(), 100)
+		if err != nil {
+			continue
+		}
+		digest := activity.DecayActivities(recent, time.Now(), 3, 3)
+		lines := digest.Lines()
+		if len(digest.FullFiles) > 0 {
+			lines = append([]string{"recent files: " + strings.Join(digest.FullFiles, ", ")}, lines...)
+		}
+		if len(lines) > 0 {
+			result[item.ID] = lines
+		}
+	}
+	return result
+}
+
+func renderHistory(workspaceRoot string, items []session.Session, activitySummaries map[string][]string, now time.Time) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "[Pane] Session history\n")
 	fmt.Fprintf(&out, "Workspace: %s\n", workspaceRoot)
@@ -1251,6 +1277,9 @@ func renderHistory(workspaceRoot string, items []session.Session, now time.Time)
 		fmt.Fprintf(&out, "\n  Intent: %s\n", displayText(item.LastIntent, "not set"))
 		fmt.Fprintf(&out, "  CWD: %s\n", displayText(item.CWD, "unknown"))
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
+		if summaries := activitySummaries[item.ID]; len(summaries) > 0 {
+			fmt.Fprintf(&out, "  Activity summary: %s\n", strings.Join(summaries, "; "))
+		}
 	}
 	return out.String()
 }
