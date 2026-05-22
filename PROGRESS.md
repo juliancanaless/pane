@@ -585,6 +585,32 @@ Exit criteria met: `pane ask auth-refactor "are you done?"` works and reads natu
 
 Smoke tested end-to-end: naming, board/summary/history rendering, ask by name, ask by prefix, overlap with names.
 
+### Phase 19 — file watcher hardening
+
+Status: complete (V2.6).
+
+Goal:
+
+Replace polling with platform-native file watching. Filter noise from build artifacts and dependencies.
+
+Completed:
+
+1. `NativeWatcher` using `rjeczalik/notify` — FSEvents on macOS, inotify on Linux, recursive watching.
+2. `IgnoreFilter` — loads `.gitignore` and `.paneignore` from workspace root, combined with hardcoded exclusions.
+3. 100ms debounce — rapid editor saves collapse into single events.
+4. Relative path storage — `recordWatchEvent` stores paths relative to workspace root for consistent overlap matching.
+5. PollWatcher retained as code but daemon now uses NativeWatcher.
+
+New files: `internal/activity/native_watcher.go`, `internal/activity/ignore.go` with 11 unit tests.
+
+Smoke tested end-to-end: file change detection <2s, .gitignore filtering (bin/ excluded), .paneignore filtering, relative path storage, real overlap detection, debounce.
+
+Exit criteria met: file activity updates are near-instant and don't include noise from build artifacts or dependencies.
+
+---
+
+**V2 is complete.** All six phases (V2.1–V2.6) implemented and smoke tested.
+
 ## Testing plan
 
 ### Automated baseline
