@@ -8,6 +8,8 @@ This file is intentionally committed so every machine and every agent can see th
 
 Pane has a working daemon-backed core with sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, heartbeat, agent state, and session lifecycle cleanup.
 
+**V2 implementation is complete, but real dogfood found overlap gaps that should be addressed before V3.** See the V2 dogfood notes below.
+
 See `ROADMAP.md` for the V2/V3/Done plan.
 
 Validated recently with:
@@ -609,7 +611,33 @@ Exit criteria met: file activity updates are near-instant and don't include nois
 
 ---
 
-**V2 is complete.** All six phases (V2.1–V2.6) implemented and smoke tested.
+**V2 implementation is complete.** All six phases (V2.1–V2.6) are implemented and smoke tested.
+
+### V2 dogfood findings — real panes/default daemon
+
+Status: partial pass; overlap behavior needs investigation before V3.
+
+Observed during real dogfood:
+
+1. Native watcher worked: recent files appeared quickly on the board.
+2. Attribution was not balanced for the overlap test: `tmp-pane-dogfood/overlap.txt` appeared under `test-agent`, but not under `auth-agent`.
+3. Board/summary did not show the expected overlap indicator for `tmp-pane-dogfood/overlap.txt`.
+4. `pane git status` produced normal git output with no warning, which may be acceptable if `status` is not intended to warn.
+5. `pane git rebase main` produced branch/rebase warnings, but did not include the expected overlap-specific file warning for `tmp-pane-dogfood/overlap.txt`.
+6. `pane close` succeeded. A reported WebSocket error likely came from the surrounding agent/UI transport, not Pane itself; Pane uses Unix socket request/response, not WebSockets.
+
+Likely issue:
+
+- overlap detection depends on file activity being attributed to multiple sessions; in this dogfood, both edits appear to have been attributed to one session, so no overlap could be derived.
+
+Do not start V3 until this is resolved or explicitly downgraded in `ROADMAP.md` as acceptable V2 follow-up.
+
+Recommended next work:
+
+1. Reproduce the overlap dogfood with two real panes and inspect `file_activity` attribution.
+2. Decide whether attribution should record multi-session/shared evidence for same-file edits rather than only one owner per event.
+3. Add a command or debug output to inspect recent file activity by session if needed.
+4. Make git preflight overlap warnings verifiably use the same overlap model shown by board/summary.
 
 ## Testing plan
 

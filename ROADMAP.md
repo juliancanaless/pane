@@ -144,6 +144,15 @@ Run on real default daemon/DB with multiple panes doing real work:
 5. Short IDs or names feel natural in `pane ask` targeting.
 6. File activity appears within 1-2 seconds of a file save.
 
+### V2 dogfood status
+
+Implementation is complete, but real dogfood found an overlap gap: file activity appeared quickly, but the same test file was attributed to one session only, so board/summary and git preflight did not show file-overlap warnings.
+
+Before V3, either:
+
+- fix attribution/overlap so the checklist passes, or
+- explicitly downgrade this to a known V2 follow-up with a clear reason.
+
 ---
 
 ## V3 — Semantic intelligence
