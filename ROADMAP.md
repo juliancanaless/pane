@@ -146,12 +146,11 @@ Run on real default daemon/DB with multiple panes doing real work:
 
 ### V2 dogfood status
 
-Implementation is complete, but real dogfood found an overlap gap: file activity appeared quickly, but the same test file was attributed to one session only, so board/summary and git preflight did not show file-overlap warnings.
+Implementation is complete. Real dogfood found an overlap gap where a shared test file was attributed to one session only, so board/summary and git preflight did not show file-overlap warnings.
 
-Before V3, either:
+That attribution bug has been fixed: ambiguous same-cwd watcher events are now recorded for all equally likely sessions, while more specific cwd matches still win. Temp-daemon smoke tests now show board overlap and git preflight overlap warnings for `tmp-pane-dogfood/overlap.txt`.
 
-- fix attribution/overlap so the checklist passes, or
-- explicitly downgrade this to a known V2 follow-up with a clear reason.
+Before V3, rerun the original real default daemon/DB dogfood once to confirm the fix in the user's live environment.
 
 ---
 

@@ -100,6 +100,45 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	}
 }
 
+func TestRecordWatchEventAttributesSharedCWDToMultipleSessions(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {})
+	initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {})
+	if !initA.OK || !initB.OK {
+		t.Fatalf("init failed: %#v %#v", initA, initB)
+	}
+
+	d.recordWatchEvent("/workspace", activity.WatchEvent{Path: "/workspace/shared.txt", EventType: activity.EventModified, Time: time.Now()})
+
+	pathSessions, err := d.activityStore.OverlapByWorkspace(context.Background(), "/workspace", time.Now().Add(-time.Minute).Unix())
+	if err != nil {
+		t.Fatalf("OverlapByWorkspace returned error: %v", err)
+	}
+	sessions := pathSessions["shared.txt"]
+	if len(sessions) != 2 {
+		t.Fatalf("shared.txt sessions = %#v", sessions)
+	}
+}
+
+func TestAttributeSessionsPrefersMostSpecificCWD(t *testing.T) {
+	owners := attributeSessions([]session.Session{
+		{ID: "root", CWD: "/workspace"},
+		{ID: "nested", CWD: "/workspace/pkg"},
+	}, "/workspace/pkg/file.go")
+	if len(owners) != 1 || owners[0].Session.ID != "nested" || owners[0].Attribution != activity.AttributionMedium {
+		t.Fatalf("owners = %#v", owners)
+	}
+}
+
 func TestBoardAndSummaryShowOverlap(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

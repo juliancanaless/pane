@@ -466,37 +466,68 @@ func (d *Daemon) recordWatchEvent(workspaceRoot string, event activity.WatchEven
 	if rel, err := filepath.Rel(workspaceRoot, path); err == nil && !strings.HasPrefix(rel, "..") {
 		path = rel
 	}
-	owner, attribution := attributeSession(sessions, event.Path)
-	_ = d.activityStore.Save(context.Background(), activity.FileActivity{
-		SessionID:   owner.ID,
-		Path:        path,
-		EventType:   event.EventType,
-		Attribution: attribution,
-		Timestamp:   event.Time.Unix(),
-	})
+	for _, owner := range attributeSessions(sessions, event.Path) {
+		_ = d.activityStore.Save(context.Background(), activity.FileActivity{
+			SessionID:   owner.Session.ID,
+			Path:        path,
+			EventType:   event.EventType,
+			Attribution: owner.Attribution,
+			Timestamp:   event.Time.Unix(),
+		})
+	}
 }
 
-func attributeSession(sessions []session.Session, path string) (session.Session, activity.Attribution) {
-	if len(sessions) == 1 {
-		return sessions[0], activity.AttributionHigh
+type attributedSession struct {
+	Session     session.Session
+	Attribution activity.Attribution
+}
+
+func attributeSessions(sessions []session.Session, path string) []attributedSession {
+	if len(sessions) == 0 {
+		return nil
 	}
-	best := sessions[0]
+	if len(sessions) == 1 {
+		return []attributedSession{{Session: sessions[0], Attribution: activity.AttributionHigh}}
+	}
+
 	bestLen := -1
+	var best []session.Session
 	for _, item := range sessions {
-		if item.CWD != "" && pathHasPrefix(path, item.CWD) && len(item.CWD) > bestLen {
-			best = item
+		if item.CWD == "" || !pathHasPrefix(path, item.CWD) {
+			continue
+		}
+		if len(item.CWD) > bestLen {
 			bestLen = len(item.CWD)
+			best = []session.Session{item}
+			continue
+		}
+		if len(item.CWD) == bestLen {
+			best = append(best, item)
 		}
 	}
 	if bestLen >= 0 {
-		return best, activity.AttributionMedium
+		attribution := activity.AttributionMedium
+		if len(best) > 1 {
+			attribution = activity.AttributionLow
+		}
+		return attributedSessions(best, attribution)
 	}
+
+	latest := sessions[0]
 	for _, item := range sessions[1:] {
-		if item.LastSeenAt > best.LastSeenAt {
-			best = item
+		if item.LastSeenAt > latest.LastSeenAt {
+			latest = item
 		}
 	}
-	return best, activity.AttributionLow
+	return []attributedSession{{Session: latest, Attribution: activity.AttributionLow}}
+}
+
+func attributedSessions(sessions []session.Session, attribution activity.Attribution) []attributedSession {
+	owners := make([]attributedSession, 0, len(sessions))
+	for _, item := range sessions {
+		owners = append(owners, attributedSession{Session: item, Attribution: attribution})
+	}
+	return owners
 }
 
 func pathHasPrefix(path, prefix string) bool {
