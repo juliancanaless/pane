@@ -228,6 +228,30 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 "Done" means Pane is infrastructure you forget about. It's always running, always correct, always useful, and never in the way.
 
+### Worktree stance
+
+Git worktrees do **not** invalidate V1/V2/V3. They expose an important scope boundary:
+
+- **Workspace root** remains the unit for local file watching, cwd display, and per-checkout indexing.
+- **Repository identity** should become the unit for cross-worktree awareness, history, branch risk, and semantic graph normalization.
+
+Today Pane is strongest within one workspace root. Done-quality Pane should understand that `/repo`, `/repo-feature-a`, and `/repo-feature-b` may be separate worktrees of the same repository, so agents get isolation without losing shared memory.
+
+### D.0 — Git worktree-aware repository identity
+
+**Why:** Multi-agent coding often uses one worktree per agent. That is the right Git safety model, but it can hide related work if Pane only groups by filesystem workspace root.
+
+**What:**
+- Detect Git repository identity using common-dir/main-worktree metadata, not just current workspace root
+- Store sessions with both `workspace_root` and repo/worktree identity
+- Board/history modes for current workspace, same repo across worktrees, and all workspaces
+- Git preflight understands same branch / target branch risk across sibling worktrees
+- Normalize semantic graph keys so equivalent repo-relative files can be compared across worktrees
+- Keep worktree-local file watching and indexing; only aggregate higher-level awareness where repo identity matches
+
+**Exit criteria:** Two agents in sibling worktrees of the same repo can see each other on the board, git preflight can warn about branch/semantic risks across worktrees, and Pane still preserves each worktree's isolated cwd/working-set context.
+
+
 ### D.1 — Worker/child session hierarchies
 
 **Why:** The original vision describes agents spawning child agents for subtasks. Those child sessions should register with Pane automatically.
@@ -290,10 +314,11 @@ V3 introduces the Rust analysis layer from the original vision. This is where Pa
 
 1. A fresh machine can `brew install pane && pane setup` and be fully operational.
 2. Agent spawns a child task — parent sees child session in board automatically.
-3. `pane history --since 1w --format work-log` produces a useful weekly report.
-4. `pane state list neon.*` shows what the Neon agent remembers.
-5. Pane has run for a full work week without manual daemon intervention.
-6. Semantic overlap warnings have prevented at least one real collision.
+3. Sibling Git worktrees of the same repo appear as related contexts without collapsing their separate working directories.
+4. `pane history --since 1w --format work-log` produces a useful weekly report.
+5. `pane state list neon.*` shows what the Neon agent remembers.
+6. Pane has run for a full work week without manual daemon intervention.
+7. Semantic overlap warnings have prevented at least one real collision.
 
 ---
 
@@ -324,6 +349,8 @@ These are from the original vision but are explicitly out of scope for this plan
 10. `docs/80-20-overview.md` — V1 product scope rationale
 
 ## Source material
+
+`REFRAMING.md` is the product philosophy: Pane as the environment and memory layer for sequential continuity, concurrent coordination, worktree-aware codebase coordination, and agent memory. This roadmap is the operational plan. If they appear to differ in version labels, preserve the reframe as the north star and this roadmap as the implementation sequence.
 
 The original vision and 80/20 scoping documents that informed this project live at:
 

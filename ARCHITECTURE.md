@@ -28,9 +28,21 @@ Pane is an environment layer for agents:
 
 - **Sequential continuity**: a new session can inherit what previous sessions did.
 - **Concurrent awareness**: active sessions can see what other sessions are doing.
+- **Worktree-aware codebase awareness**: sessions in separate Git worktrees can remain isolated while still coordinating as one repository.
 - **Persistent agent memory**: future agent-specific state can live in one local store instead of bespoke per-agent caches.
 
 V1 focuses on concurrent awareness because it is the right foundation: sessions, intents, board, summaries, messages, file activity, and git guardrails.
+
+### Workspace root vs repository identity
+
+Pane currently treats `workspace_root` as the primary scope. That is correct for file watching, cwd rendering, and local indexing because each Git worktree has its own filesystem root. It is incomplete for Done-quality multi-agent work because sibling worktrees can represent the same repository.
+
+The intended model is two-layered:
+
+- `workspace_root`: concrete checkout/worktree path; owns watcher events, cwd, local file activity, and local analyzer indexing.
+- `repo_identity`: stable Git repository identity shared by related worktrees; owns cross-worktree board/history aggregation, branch risk, and semantic graph normalization.
+
+This does not invalidate existing data. Existing workspace-scoped records remain the local truth. A future migration can add repo/worktree metadata and aggregate above the current workspace layer.
 
 ## Core components
 
@@ -225,6 +237,8 @@ Messages remove the human as the context router.
 ### Git guard layer: `internal/gitguard`
 
 V1 includes git as an early guardrail, not as the product center.
+
+Worktree note: git guardrails should eventually reason across sibling worktrees of the same repository. Worktrees are a safety mechanism, not a separate product scope; Pane should warn when branch or semantic risk crosses worktree boundaries while preserving each worktree's separate working directory.
 
 `pane git` currently:
 

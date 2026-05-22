@@ -19,10 +19,12 @@ Pi and Claude sessions lose context between handoffs. Every new session starts c
 
 **Solution built:** `/handoff` extension (one-shot LLM extraction), `APPEND_SYSTEM.md` (static rules), skills (on-demand workflow instructions), Obsidian vault (manual knowledge base). Each is a manual approximation of persistent memory.
 
-### Layer 3: Concurrent Agent Sessions → Same Workspace
-Multiple agents working in the same codebase don't know about each other. Humans relay context between panes.
+### Layer 3: Concurrent Agent Sessions → Same Codebase
+Multiple agents working in the same codebase don't know about each other. Humans relay context between panes. In serious multi-agent workflows, "same codebase" often means **multiple Git worktrees**: each agent has its own checkout and branch, but the work still targets one underlying repository.
 
 **Solution built (in progress):** Pane v1 — shared awareness board, session identity, intent tracking, messaging, git preflight.
+
+**Important design implication:** worktrees do not invalidate Pane's model. They clarify it. Pane needs two scopes: a concrete workspace root for file watching/indexing, and a repository identity for cross-worktree awareness, history, and semantic coordination.
 
 **These are the same problem at different scopes:** an agent needs to know what happened before it arrived and what's happening around it.
 
@@ -36,6 +38,7 @@ Pane shouldn't just be for concurrent agents. It should be the **unified persist
 
 - **Sequential continuity** — a new session inherits the full lineage of what previous sessions did in this workspace, on this task, in this pane. No handoff extraction needed; the context was recorded as it happened.
 - **Concurrent coordination** — the existing v1 vision. Sessions see each other's intent, working sets, and messages.
+- **Worktree-aware codebase coordination** — agents may work in separate Git worktrees for safety, but Pane should still know they are operating on one repository and surface branch/file/semantic relationships across those roots.
 - **Agent memory** — the Neon/APM agent's session-state infrastructure becomes a Pane client, not a bespoke implementation. Same protocol, same storage.
 
 ### The OpenAI Lesson
@@ -47,6 +50,8 @@ The OpenAI Codex team's 5 harness engineering principles (from their 1M-line cod
 They treated the harness — the shell around the agent — as the primary deliverable. ExecPlans, mechanical linters, observability stacks, Chrome DevTools integration — all of it was environment design, not agent prompting.
 
 Pane is already this idea for concurrent coordination. The reframe extends it: **Pane is the environment for ALL agent work.** It's not a tool in your workflow — it IS your workflow.
+
+Git worktrees fit this philosophy rather than competing with it. Worktrees isolate working directories and branches; Pane supplies the shared memory above them, so isolation does not become blindness.
 
 ---
 
@@ -169,6 +174,7 @@ One local daemon that gives ALL agents — Pi, Claude, Neon, APM, future ones �
 
 - **Sequential sessions** inherit context automatically. No handoff prompts, no manual re-orientation.
 - **Concurrent sessions** coordinate without human relay. No "hey, are you still touching that file?"
+- **Worktree sessions** can stay isolated at the Git/filesystem layer while remaining visible at the repository-memory layer.
 - **Work tracking** falls out as a side effect of the activity log. No manual to-do reconciliation.
 - **Agent memory** is unified. No bespoke persistence per agent type.
 

@@ -151,13 +151,14 @@ The human can inspect and override, but the human should not be responsible for 
 
 Pane is not just concurrent coordination. It can become the unified persistence and awareness layer for all agent workflows.
 
-Three scopes:
+Four scopes:
 
 1. **Sequential continuity** — new sessions inherit context from previous sessions.
 2. **Concurrent coordination** — active sessions share board, messages, working sets, warnings.
-3. **Agent memory** — specialized agents store persistent namespaced state through Pane.
+3. **Worktree-aware codebase coordination** — agents can use separate Git worktrees for isolation while Pane aggregates shared repository awareness.
+4. **Agent memory** — specialized agents store persistent namespaced state through Pane.
 
-This does not change V1. V1 remains the foundation.
+This does not change V1/V2/V3. It adds an explicit Done-quality scope boundary: workspace roots remain local checkout contexts, while repo identity should aggregate related worktrees.
 
 ## Phase plan
 
@@ -715,7 +716,14 @@ Still needed:
 - semantic diffing between pre-change and post-change symbol signatures
 - deeper symbol-level reference extraction, not just import/use/require edges
 - richer import resolution per language/package manager
+- repo/worktree identity so semantic graph data can be normalized across sibling Git worktrees
 - latency/noise dogfooding on real multi-pane sessions
+
+### Cross-cutting Done note — Git worktrees
+
+Worktree support does not invalidate prior phases. V1/V2/V3 are workspace-root scoped and remain useful inside one checkout. The missing Done-quality behavior is recognizing that multiple workspace roots may be sibling Git worktrees of the same repository.
+
+Future work should add repository identity alongside `workspace_root`, then use it for cross-worktree board/history aggregation, git preflight branch-risk checks, and semantic overlap normalization by repo-relative path.
 
 ## Testing plan
 
