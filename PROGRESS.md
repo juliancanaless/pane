@@ -8,7 +8,7 @@ This file is intentionally committed so every machine and every agent can see th
 
 Pane has a working daemon-backed core with sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, heartbeat, agent state, and session lifecycle cleanup.
 
-**V2 is complete.** Real dogfood found an overlap attribution gap, and the fix has been implemented and smoke-tested. See the V2 dogfood notes below.
+**V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
 See `ROADMAP.md` for the V2/V3/Done plan.
 
@@ -615,7 +615,7 @@ Exit criteria met: file activity updates are near-instant and don't include nois
 
 ### V2 dogfood findings — real panes/default daemon
 
-Status: resolved; ready for final real-pane confirmation.
+Status: resolved and confirmed in real-pane dogfood.
 
 Original dogfood findings:
 
@@ -640,9 +640,9 @@ Validation after fix:
 - temp-daemon smoke test showed `tmp-pane-dogfood/overlap.txt` under both sessions and board overlap output
 - temp-daemon `pane git rebase main` showed overlap-specific preflight warning for `tmp-pane-dogfood/overlap.txt`
 
-Recommended final check before V3:
+Final confirmation:
 
-- rerun the user's original two-pane overlap dogfood on the real default daemon/DB and confirm board/summary/git warnings match the temp-daemon smoke test
+- user reran the original two-pane overlap dogfood on the real default daemon/DB after the attribution fix; board/summary/git overlap checks passed
 
 ## Testing plan
 
