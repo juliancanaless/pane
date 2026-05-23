@@ -892,6 +892,29 @@ Still needed:
 - better duration semantics for resumed/reused pane sessions
 - coalesced daily/weekly summaries instead of raw session lines
 
+### Phase 32 — Packaging/analyzer install hardening
+
+Status: first pass implemented.
+
+Goal:
+
+Close the gap between local build outputs and installed runtime behavior, especially for the Rust analyzer helper used by semantic analysis.
+
+Completed:
+
+1. `make install` now installs both `pane` and `pane-analyze` to `~/.pane/bin`.
+2. `pane setup` installs `pane-analyze` next to the `pane` binary when the analyzer build output is available.
+3. The analysis client now resolves `pane-analyze` next to the running `pane` binary before falling back to `bin/pane-analyze`.
+4. `pane doctor` checks both installed analyzer path and runtime analyzer availability.
+5. Added a head-only Homebrew formula scaffold under `packaging/homebrew/pane.rb`.
+6. Dogfooded setup with a temporary HOME and verified installed analyzer availability.
+
+Still needed:
+
+- tagged release URL/SHA for a stable Homebrew formula
+- homebrew tap repository or release automation
+- CI check for formula syntax/lint once packaging is no longer a scaffold
+
 ### Phase 31 — Setup safety hardening
 
 Status: first pass implemented.

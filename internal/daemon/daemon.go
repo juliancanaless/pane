@@ -1369,13 +1369,14 @@ func (d *Daemon) workLogStats(ctx context.Context, workspaceRoot string, items [
 		stats[item.ID] = itemStats
 	}
 	if d.gitEventStore != (store.GitEventStore{}) {
-		events, err := d.gitEventStore.RecentByWorkspace(ctx, workspaceRoot, since, 10000)
-		if err == nil {
-			for _, event := range events {
-				itemStats := stats[event.SessionID]
-				itemStats.GitEvents++
-				stats[event.SessionID] = itemStats
+		for _, item := range items {
+			events, err := d.gitEventStore.RecentBySession(ctx, item.ID, since, 10000)
+			if err != nil {
+				continue
 			}
+			itemStats := stats[item.ID]
+			itemStats.GitEvents = len(events)
+			stats[item.ID] = itemStats
 		}
 	}
 	return stats

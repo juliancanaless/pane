@@ -175,7 +175,7 @@ make restart # stop the current dev daemon, rebuild, and start it in the backgro
 ./bin/pane daemon status
 ```
 
-`make install` and `pane setup` install both `pane` and the `pane-analyze` helper used for semantic analysis. CI runs on macOS and Linux with Go/Rust tests, build, and a daemon smoke test.
+`make install` and `pane setup` install both `pane` and the `pane-analyze` helper used for semantic analysis. A head-only Homebrew formula scaffold lives under `packaging/homebrew/`; stable Homebrew distribution still needs tagged release URLs and checksums. CI runs on macOS and Linux with Go/Rust tests, build, and a daemon smoke test.
 
 ## Shell integration
 

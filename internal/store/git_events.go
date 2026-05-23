@@ -60,6 +60,22 @@ LIMIT ?
 	return items, nil
 }
 
+func (s GitEventStore) RecentBySession(ctx context.Context, sessionID string, since int64, limit int) ([]GitEvent, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, session_id, command, subcommand, branch, COALESCE(target_branch, ''), timestamp, COALESCE(result, '')
+FROM git_events
+WHERE session_id = ?
+  AND timestamp >= ?
+ORDER BY timestamp DESC, id DESC
+LIMIT ?
+`, sessionID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanGitEvents(rows)
+}
+
 func (s GitEventStore) RecentByWorkspace(ctx context.Context, workspaceRoot string, since int64, limit int) ([]GitEvent, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT ge.id, ge.session_id, ge.command, ge.subcommand, ge.branch, COALESCE(ge.target_branch, ''), ge.timestamp, COALESCE(ge.result, '')
@@ -75,6 +91,14 @@ LIMIT ?
 	}
 	defer rows.Close()
 
+	return scanGitEvents(rows)
+}
+
+func scanGitEvents(rows interface {
+	Next() bool
+	Scan(dest ...any) error
+	Err() error
+}) ([]GitEvent, error) {
 	var items []GitEvent
 	for rows.Next() {
 		var value GitEvent
