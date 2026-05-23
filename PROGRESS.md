@@ -29,6 +29,7 @@ Also smoke-tested locally with temporary database/socket paths.
 ### Build and test
 
 - `make build` builds `bin/pane`
+- `make restart` stops the current dev daemon if present, rebuilds, and starts it in the background
 - `go test ./...` passes
 - `go vet ./...` passes
 

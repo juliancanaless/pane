@@ -161,6 +161,7 @@ The current focus is V3: semantic intelligence through a Rust/tree-sitter analys
 ```bash
 make test
 make build
+make restart # stop the current dev daemon, rebuild, and start it in the background
 ./bin/pane help
 ./bin/pane daemon start
 ./bin/pane daemon status
