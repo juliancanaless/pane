@@ -366,23 +366,12 @@ These are from the original vision but are explicitly out of scope for this plan
 ## Reading order for contributors
 
 1. `README.md` — what Pane is and current status
-2. `ROADMAP.md` — where it's going (this file)
-3. `AGENTS.md` — how agents participate
-4. `ARCHITECTURE.md` — system design and ownership
-5. `PROGRESS.md` — detailed phase history and implementation notes
-6. `V1_READY.md` — V1 definition (achieved)
-7. `USE_CASES.md` — the problems Pane solves
-8. `docs/architecture.md` — detailed V1 technical architecture
-9. `docs/80-20-overview.md` — V1 product scope rationale
+2. `FAQ.md` — common user questions and edge cases
+3. `INSTALL.md` — installation and setup
+4. `AGENTS.md` — how agents participate
+5. `docs/for-agents.md` — concise command guide for AI coding agents
+6. `ARCHITECTURE.md` — system design and ownership
+7. `PROGRESS.md` — detailed implementation history and current gaps
+8. `USE_CASES.md` — the problems Pane solves
 
-## Source material
-
-The original vision and 80/20 scoping documents that informed this project live at:
-
-```
-~/Documents/axiom/10 Personal/13 Effort/Pane/
-├── Pane Vision.md        — full technical vision including Go/Rust architecture
-└── Pane 80-20 Approach.md — V1 scoping rationale
-```
-
-These are preserved as historical context. The canonical plan is this file.
+The canonical product overview is `README.md`. This roadmap is preserved as implementation history and future-planning context.

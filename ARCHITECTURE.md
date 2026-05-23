@@ -13,12 +13,10 @@ long-running local Pane daemon
         ↓
 SQLite-backed shared memory
         ↓
-Rust/tree-sitter analyzer subprocess for V3 semantic analysis
+Rust/tree-sitter analyzer subprocess for semantic analysis
 ```
 
 The daemon is the source of truth. The CLI should stay thin: detect local context, send a request, print the daemon's response.
-
-`V1_READY.md` defines the bar for Pane being good enough to use as daily agent infrastructure.
 
 ## Product model
 
@@ -30,8 +28,6 @@ Pane is an environment layer for agents:
 - **Concurrent awareness**: active sessions can see what other sessions are doing.
 - **Worktree-aware codebase awareness**: sessions in separate Git worktrees can remain isolated while still coordinating as one repository.
 - **Persistent agent memory**: future agent-specific state can live in one local store instead of bespoke per-agent caches.
-
-V1 focuses on concurrent awareness because it is the right foundation: sessions, intents, board, summaries, messages, file activity, and git guardrails.
 
 ### Workspace root vs repository identity
 

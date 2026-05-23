@@ -107,25 +107,20 @@ Also smoke-tested locally with temporary database/socket paths.
 - `pane shims install`
 - `pane git <args...>` real passthrough with first-pass preflight and event recording
 
-## V1 ready target
+## Historical readiness notes
 
-`V1_READY.md` defines the bar. **V1 is achieved.** All V1 criteria passed the dogfood checklist on 2026-05-21.
+V1 criteria passed the dogfood checklist on 2026-05-21. The old V1 readiness checklist has been removed from the release-facing repo docs; this file preserves implementation history.
 
-See `ROADMAP.md` for V2, V3, and Done scoping.
+## Remaining hardening areas
 
-## What is not real yet
+These are important future improvements:
 
-These are important but not implemented yet:
-
-- file working-set overlap detection
-- daemon auto-start outside shell hook
-- full daemon lock/log lifecycle beyond first-pass PID/status
-- platform-native file watcher
-- richer session lineage beyond first parent links
-- richer `pane history` filters and summaries
-- richer generic `pane state` workflows beyond first-pass key/value JSON
-- richer aliases/names beyond first-pass short session IDs
-- richer session lifecycle cleanup beyond first-pass close/prune/stale hiding
+- explicit SQLite retention/pruning/vacuum policy
+- Linux binary release assets
+- multi-day real-world dogfood with multiple users/agents
+- deeper semantic analysis beyond import/package-level overlap
+- richer `pane history --format work-log` output formats and weekly summaries
+- stronger setup/doctor checks for PATH ordering and custom shell rc layouts
 
 ## Product interpretation to preserve
 
