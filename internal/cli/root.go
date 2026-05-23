@@ -50,6 +50,8 @@ Usage:
 
   pane daemon health                Check daemon health over the Unix socket
   pane daemon stop                  Ask the daemon to stop cleanly
+  pane setup                        Install local binary, shell hook, git shim, and start daemon
+  pane doctor                       Diagnose local Pane installation and daemon health
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks
 
@@ -120,6 +122,10 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runShellInit(args[1:], stdout)
 	case "shims":
 		return runShims(args[1:], stdout)
+	case "setup":
+		return runSetup(args[1:], stdout)
+	case "doctor":
+		return runDoctor(args[1:], stdout)
 	case "git":
 		return runGit(args[1:], stdout, stderr)
 	case "ask":

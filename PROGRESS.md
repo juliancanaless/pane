@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, and D.3 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, and first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context.
+**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, D.3, and D.4 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context, plus first-pass setup/doctor commands for local installation diagnostics.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -844,6 +844,31 @@ Still needed:
 - richer JSON/query output formats for state inspection
 - policy for which global keys should appear in summaries
 - migration path if global state needs its own table instead of a reserved workspace root
+
+### Phase 28 — Installer and distribution
+
+Status: first pass implemented (D.4).
+
+Goal:
+
+Make local installation and diagnostics one-command enough that users do not manually copy binaries, edit shell rc files, or guess daemon paths.
+
+Completed:
+
+1. Added `pane setup` to copy the current binary to `~/.pane/bin/pane`.
+2. `pane setup` installs the transparent git shim under `~/.pane/shims/git`.
+3. `pane setup` appends an idempotent managed shell-hook block to the default zsh/bash rc file.
+4. `pane setup` starts the daemon in the background after installation.
+5. Added `pane doctor` to report binary, DB, socket, PID, log, shim, shell hook, and daemon health.
+6. Added setup helper tests for idempotent shell-hook installation and git shim generation.
+7. Dogfooded with a temporary HOME: setup installed binary/shim/shell hook, started daemon, and doctor reported all checks healthy.
+
+Still needed:
+
+- Homebrew formula or other package manager distribution
+- safer shell rc targeting/options for non-zsh/bash or custom dotfile layouts
+- `pane setup --no-shell` / `--print-only` modes if dogfooding finds automatic rc edits too aggressive
+- stronger doctor checks for PATH ordering and analyzer binary availability
 
 ## Testing plan
 

@@ -300,6 +300,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.4 — Installer and distribution
 
+**Status:** first pass implemented.
+
 **Why:** Currently requires `make build` and manual PATH setup.
 
 **What:**
@@ -307,6 +309,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 - `pane setup` one-command installer
 - Automatic shell hook installation
 - `pane doctor` for diagnosing configuration issues
+
+**Exit criteria:** `pane setup` can install a local binary under `~/.pane/bin`, install the shell hook and git shim, start the daemon in the background, and `pane doctor` reports installation/daemon health — first pass done for local/manual distribution; Homebrew packaging remains future work.
 
 ### D.5 — Activity-based work tracking
 
