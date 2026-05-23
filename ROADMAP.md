@@ -272,12 +272,16 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.2 — Richer session lineage
 
+**Status:** first pass implemented.
+
 **Why:** V1 has immediate parent links. Real workflows have deep chains of sequential sessions.
 
 **What:**
 - Accumulate structured decisions and open threads beyond intents/messages
 - Handle long lineage chains, not only immediate parent + recent history
 - Lineage visualization in `pane history`
+
+**Exit criteria:** `pane history --lineage` renders a compact lineage tree, individual history entries show known parent chains and children, and multi-generation session relationships are readable without manually matching short IDs — first pass done for recent sessions in the selected workspace/repo scope.
 
 ### D.3 — Agent state conventions and cross-agent memory
 

@@ -359,7 +359,7 @@ func (d *Daemon) handleSessionHistory(request protocol.Request) protocol.Respons
 		items = items[:20]
 	}
 	activitySummaries := d.historyActivitySummaries(context.Background(), items)
-	return protocol.Success(map[string]any{"text": renderHistory(workspaceRoot, items, activitySummaries, time.Now())})
+	return protocol.Success(map[string]any{"text": renderHistory(workspaceRoot, items, activitySummaries, payloadBool(request, "lineage"), time.Now())})
 }
 
 func (d *Daemon) handleSessionIntent(request protocol.Request) protocol.Response {
@@ -1282,13 +1282,17 @@ func (d *Daemon) historyActivitySummaries(ctx context.Context, items []session.S
 	return result
 }
 
-func renderHistory(workspaceRoot string, items []session.Session, activitySummaries map[string][]string, now time.Time) string {
+func renderHistory(workspaceRoot string, items []session.Session, activitySummaries map[string][]string, showLineage bool, now time.Time) string {
 	var out strings.Builder
 	fmt.Fprintf(&out, "[Pane] Session history\n")
 	fmt.Fprintf(&out, "Workspace: %s\n", workspaceRoot)
 	if len(items) == 0 {
 		fmt.Fprintf(&out, "No sessions recorded.\n")
 		return out.String()
+	}
+	if showLineage {
+		fmt.Fprintf(&out, "\nLineage tree:\n")
+		renderLineageTree(&out, items)
 	}
 	for _, item := range items {
 		shortID := session.ShortID(item.ID)
@@ -1303,9 +1307,15 @@ func renderHistory(workspaceRoot string, items []session.Session, activitySummar
 			fmt.Fprintf(&out, " — %s", item.Branch)
 		}
 		if item.ParentID != "" {
-			fmt.Fprintf(&out, " — continued from %s", session.ShortID(item.ParentID))
+			fmt.Fprintf(&out, " — child of %s", session.ShortID(item.ParentID))
 		}
 		fmt.Fprintf(&out, "\n  Intent: %s\n", displayText(item.LastIntent, "not set"))
+		if chain := lineageChain(items, item.ID); len(chain) > 1 {
+			fmt.Fprintf(&out, "  Lineage: %s\n", strings.Join(chain, " > "))
+		}
+		if children := childSessionLabels(items, item.ID); len(children) > 0 {
+			fmt.Fprintf(&out, "  Children: %s\n", strings.Join(children, ", "))
+		}
 		fmt.Fprintf(&out, "  CWD: %s\n", displayText(item.CWD, "unknown"))
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))
 		if summaries := activitySummaries[item.ID]; len(summaries) > 0 {
@@ -1313,6 +1323,79 @@ func renderHistory(workspaceRoot string, items []session.Session, activitySummar
 		}
 	}
 	return out.String()
+}
+
+func renderLineageTree(out *strings.Builder, items []session.Session) {
+	children := childrenByParent(items)
+	itemByID := sessionsByID(items)
+	for _, item := range items {
+		if _, parentVisible := itemByID[item.ParentID]; item.ParentID != "" && parentVisible {
+			continue
+		}
+		renderLineageNode(out, item, children, 0)
+	}
+}
+
+func renderLineageNode(out *strings.Builder, item session.Session, children map[string][]session.Session, depth int) {
+	indent := strings.Repeat("  ", depth)
+	fmt.Fprintf(out, "  %s- %s", indent, historySessionLabel(item))
+	if item.LastIntent != "" {
+		fmt.Fprintf(out, ": %s", item.LastIntent)
+	}
+	fmt.Fprintf(out, "\n")
+	for _, child := range children[item.ID] {
+		renderLineageNode(out, child, children, depth+1)
+	}
+}
+
+func childSessionLabels(items []session.Session, parentID string) []string {
+	children := childrenByParent(items)[parentID]
+	labels := make([]string, 0, len(children))
+	for _, child := range children {
+		labels = append(labels, historySessionLabel(child))
+	}
+	return labels
+}
+
+func lineageChain(items []session.Session, sessionID string) []string {
+	itemByID := sessionsByID(items)
+	chain := make([]string, 0)
+	seen := make(map[string]bool)
+	current, ok := itemByID[sessionID]
+	for ok && !seen[current.ID] {
+		seen[current.ID] = true
+		chain = append([]string{historySessionLabel(current)}, chain...)
+		if current.ParentID == "" {
+			break
+		}
+		current, ok = itemByID[current.ParentID]
+	}
+	return chain
+}
+
+func childrenByParent(items []session.Session) map[string][]session.Session {
+	children := make(map[string][]session.Session)
+	for _, item := range items {
+		if item.ParentID != "" {
+			children[item.ParentID] = append(children[item.ParentID], item)
+		}
+	}
+	return children
+}
+
+func sessionsByID(items []session.Session) map[string]session.Session {
+	byID := make(map[string]session.Session, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	return byID
+}
+
+func historySessionLabel(item session.Session) string {
+	if item.Name != "" {
+		return item.Name
+	}
+	return session.ShortID(item.ID)
 }
 
 func statusLabel(status session.Status) string {

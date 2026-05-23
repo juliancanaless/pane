@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, V3.4, D.0, and D.1 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, and first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance.
+**V3.1, V3.2, V3.3, V3.4, D.0, D.1, and D.2 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, and first-pass lineage visualization in `pane history --lineage`.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -796,6 +796,29 @@ Still needed:
 - richer tree rendering for deep hierarchies rather than inline parent/child labels
 - child-specific intents or task descriptions beyond inheriting parent intent
 - optional session close behavior for long-running children that should remain active after wrapper exit
+
+### Phase 26 — Richer session lineage
+
+Status: first pass implemented (D.2).
+
+Goal:
+
+Make deep sequential/worker relationships understandable without manually matching parent short IDs across flat history entries.
+
+Completed:
+
+1. Added `pane history --lineage` to request an explicit lineage rendering.
+2. History output now labels parent relationships as `child of` and shows known per-entry lineage chains.
+3. History entries show immediate children when they are present in the selected recent workspace/repo scope.
+4. `--lineage` adds a compact lineage tree before the detailed history entries.
+5. Added CLI argument tests for `--lineage` and daemon history-render tests for a three-generation chain.
+
+Still needed:
+
+- lineage graph queries that can fetch ancestors outside the recent history window
+- structured decisions/open threads attached to lineage nodes
+- richer formatting for branch/worktree changes across a lineage
+- dedicated `pane lineage <session-id>` view if dogfooding shows history is too broad
 
 ## Testing plan
 

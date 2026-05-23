@@ -100,6 +100,29 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	}
 }
 
+func TestRenderHistoryShowsLineageChains(t *testing.T) {
+	items := []session.Session{
+		{ID: "session-root", Name: "root", WorkspaceRoot: "/workspace", CWD: "/workspace", Status: session.StatusClosed, LastIntent: "root work", LastSeenAt: 100},
+		{ID: "session-child", WorkspaceRoot: "/workspace", CWD: "/workspace", Status: session.StatusClosed, ParentID: "session-root", LastIntent: "child work", LastSeenAt: 110},
+		{ID: "session-grandchild", WorkspaceRoot: "/workspace", CWD: "/workspace", Status: session.StatusActive, ParentID: "session-child", LastIntent: "grandchild work", LastSeenAt: 120},
+	}
+
+	got := renderHistory("/workspace", items, nil, true, time.Unix(130, 0))
+	for _, want := range []string{
+		"Lineage tree:",
+		"- root: root work",
+		"- child: child work",
+		"- grandch", // shortened grandchild id
+		"Lineage: root > child > grandch",
+		"Children: child",
+		"child of child",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("history missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestRecordWatchEventAttributesSharedCWDToMultipleSessions(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {
