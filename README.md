@@ -62,7 +62,7 @@ Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Res
 
 **V1 is complete.** Pane is a working local coordination layer with daemon-backed sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, agent state, and session lifecycle cleanup. Dogfooded and verified 2026-05-21.
 
-V2 is complete. V3 semantic intelligence has first-pass symbol/dependency analysis, semantic overlap warnings, and activity decay. Worktree-aware repository identity, worker/child session hierarchies, richer session lineage, agent state conventions, and local setup/diagnostics have first-pass implementations for repo-wide board/history/preflight awareness, `pane spawn` child tracking, `pane history --lineage`, global state, namespace ownership, `summary.*` startup context, `pane setup`, and `pane doctor`. See [`ROADMAP.md`](ROADMAP.md).
+V2 is complete. V3 semantic intelligence has first-pass symbol/dependency analysis, semantic overlap warnings, and activity decay. Worktree-aware repository identity, worker/child session hierarchies, richer session lineage, agent state conventions, local setup/diagnostics, and activity-based work tracking have first-pass implementations for repo-wide board/history/preflight awareness, `pane spawn` child tracking, `pane history --lineage`, global state, namespace ownership, `summary.*` startup context, `pane setup`, `pane doctor`, and `pane history --format work-log`. See [`ROADMAP.md`](ROADMAP.md).
 
 ## V1 focus
 
@@ -90,6 +90,7 @@ pane close
 pane summary
 pane history --since 24h
 pane history --lineage
+pane history --since 1w --format work-log
 pane continue <session-id>
 pane spawn <command> [args...]
 pane intent "working on auth middleware"

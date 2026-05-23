@@ -314,12 +314,16 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.5 — Activity-based work tracking
 
+**Status:** first pass implemented.
+
 **Why:** The reframing doc describes `pane history --format work-log` replacing manual commit scanning for weekly reports.
 
 **What:**
 - Rich history output with session durations, file counts, git operation counts
 - `pane history --format work-log` for structured work reports
 - Integration surface for weekly wrap-up workflows
+
+**Exit criteria:** `pane history --format work-log` produces a compact work report with session count, durations, file counts, git operation counts, and intents for the selected workspace/repo time window — first pass done for workspace-scoped history data.
 
 ### D.6 — Platform hardening
 

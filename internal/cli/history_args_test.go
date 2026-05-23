@@ -3,7 +3,7 @@ package cli
 import "testing"
 
 func TestParseHistoryArgsRepoAndSince(t *testing.T) {
-	since, repoScope, lineage, err := parseHistoryArgs([]string{"--repo", "--lineage", "--since", "1h"})
+	since, repoScope, lineage, format, err := parseHistoryArgs([]string{"--repo", "--lineage", "--format", "work-log", "--since", "1h"})
 	if err != nil {
 		t.Fatalf("parseHistoryArgs returned error: %v", err)
 	}
@@ -16,10 +16,13 @@ func TestParseHistoryArgsRepoAndSince(t *testing.T) {
 	if !lineage {
 		t.Fatal("expected lineage")
 	}
+	if format != "work-log" {
+		t.Fatalf("format = %q", format)
+	}
 }
 
 func TestParseHistoryArgsRejectsUnknown(t *testing.T) {
-	if _, _, _, err := parseHistoryArgs([]string{"--bad"}); err == nil {
+	if _, _, _, _, err := parseHistoryArgs([]string{"--bad"}); err == nil {
 		t.Fatal("expected error")
 	}
 }

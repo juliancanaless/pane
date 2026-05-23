@@ -82,7 +82,7 @@ It exposes commands such as:
 - `pane summary`
 - `pane continue <session-id>`
 - `pane spawn <command> [args...]`
-- `pane history [--since <duration>] [--lineage]`
+- `pane history [--since <duration>] [--lineage] [--format work-log]`
 - `pane ask <session-id> <message>`
 - `pane inbox`
 - `pane reply <message-id> <message>`
@@ -157,7 +157,7 @@ Current tables:
 
 Current stores:
 
-- session store, including parent-session lineage and history queries; `pane history --lineage` renders known recent parent/child chains from this data
+- session store, including parent-session lineage and history queries; `pane history --lineage` renders known recent parent/child chains from this data, and `pane history --format work-log` combines sessions with file/git activity for first-pass work reports
 - message store
 - file activity store
 - git event store

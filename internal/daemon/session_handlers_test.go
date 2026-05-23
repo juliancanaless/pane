@@ -135,6 +135,18 @@ func TestStateGlobalScopeAndSummaryState(t *testing.T) {
 	}
 }
 
+func TestRenderWorkLog(t *testing.T) {
+	d := &Daemon{}
+	items := []session.Session{{ID: "session-a", Status: session.StatusClosed, Branch: "main", LastIntent: "ship thing", StartedAt: 100, LastSeenAt: 160}}
+
+	got := d.renderWorkLog(context.Background(), "/workspace", items, 0, time.Unix(200, 0))
+	for _, want := range []string{"[Pane] Work log", "Sessions: 1", "ship thing", "Duration: 1m0s", "Files touched:", "Git operations:"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("work log missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestRenderHistoryShowsLineageChains(t *testing.T) {
 	items := []session.Session{
 		{ID: "session-root", Name: "root", WorkspaceRoot: "/workspace", CWD: "/workspace", Status: session.StatusClosed, LastIntent: "root work", LastSeenAt: 100},

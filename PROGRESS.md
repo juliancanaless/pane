@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, D.3, and D.4 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context, plus first-pass setup/doctor commands for local installation diagnostics.
+**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, D.3, D.4, and D.5 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context, first-pass setup/doctor commands for local installation diagnostics, and first-pass work-log history reports.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -869,6 +869,28 @@ Still needed:
 - safer shell rc targeting/options for non-zsh/bash or custom dotfile layouts
 - `pane setup --no-shell` / `--print-only` modes if dogfooding finds automatic rc edits too aggressive
 - stronger doctor checks for PATH ordering and analyzer binary availability
+
+### Phase 29 — Activity-based work tracking
+
+Status: first pass implemented (D.5).
+
+Goal:
+
+Make recent Pane activity usable as a lightweight work report without manually scanning commits or terminal scrollback.
+
+Completed:
+
+1. Added `pane history --format work-log`.
+2. Work-log output includes selected workspace, optional since timestamp, session count, total files touched, and total git operations.
+3. Per-session entries include label, status, branch, intent, duration, file count, and git operation count.
+4. Added CLI parsing tests and daemon work-log render tests.
+
+Still needed:
+
+- repo-scoped git/file aggregation across worktrees in work-log mode
+- richer output formats such as JSON/Markdown
+- better duration semantics for resumed/reused pane sessions
+- coalesced daily/weekly summaries instead of raw session lines
 
 ## Testing plan
 

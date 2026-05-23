@@ -359,6 +359,9 @@ func (d *Daemon) handleSessionHistory(request protocol.Request) protocol.Respons
 		items = items[:20]
 	}
 	activitySummaries := d.historyActivitySummaries(context.Background(), items)
+	if payloadString(request, "format") == "work-log" {
+		return protocol.Success(map[string]any{"text": d.renderWorkLog(context.Background(), workspaceRoot, items, payloadInt64(request, "since"), time.Now())})
+	}
 	return protocol.Success(map[string]any{"text": renderHistory(workspaceRoot, items, activitySummaries, payloadBool(request, "lineage"), time.Now())})
 }
 
@@ -1303,6 +1306,90 @@ func (d *Daemon) historyActivitySummaries(ctx context.Context, items []session.S
 		}
 	}
 	return result
+}
+
+type workLogStats struct {
+	Files     int
+	GitEvents int
+}
+
+func (d *Daemon) renderWorkLog(ctx context.Context, workspaceRoot string, items []session.Session, since int64, now time.Time) string {
+	stats := d.workLogStats(ctx, workspaceRoot, items, since)
+	var out strings.Builder
+	fmt.Fprintf(&out, "[Pane] Work log\n")
+	fmt.Fprintf(&out, "Workspace: %s\n", workspaceRoot)
+	if since > 0 {
+		fmt.Fprintf(&out, "Since: %s\n", time.Unix(since, 0).Format(time.RFC3339))
+	}
+	if len(items) == 0 {
+		fmt.Fprintf(&out, "No sessions recorded.\n")
+		return out.String()
+	}
+	var totalFiles, totalGit int
+	for _, item := range items {
+		itemStats := stats[item.ID]
+		totalFiles += itemStats.Files
+		totalGit += itemStats.GitEvents
+	}
+	fmt.Fprintf(&out, "Sessions: %d\n", len(items))
+	fmt.Fprintf(&out, "Files touched: %d\n", totalFiles)
+	fmt.Fprintf(&out, "Git operations: %d\n", totalGit)
+	for _, item := range items {
+		itemStats := stats[item.ID]
+		fmt.Fprintf(&out, "\n- %s — %s", historySessionLabel(item), statusLabel(item.Status))
+		if item.Branch != "" {
+			fmt.Fprintf(&out, " — %s", item.Branch)
+		}
+		fmt.Fprintf(&out, "\n")
+		fmt.Fprintf(&out, "  Intent: %s\n", displayText(item.LastIntent, "not set"))
+		fmt.Fprintf(&out, "  Duration: %s\n", sessionDuration(item, now))
+		fmt.Fprintf(&out, "  Files touched: %d\n", itemStats.Files)
+		fmt.Fprintf(&out, "  Git operations: %d\n", itemStats.GitEvents)
+	}
+	return out.String()
+}
+
+func (d *Daemon) workLogStats(ctx context.Context, workspaceRoot string, items []session.Session, since int64) map[string]workLogStats {
+	stats := make(map[string]workLogStats, len(items))
+	if since <= 0 {
+		since = 0
+	}
+	for _, item := range items {
+		var itemStats workLogStats
+		if d.activityStore != (store.FileActivityStore{}) {
+			activities, err := d.activityStore.RecentBySession(ctx, item.ID, since, 10000)
+			if err == nil {
+				files := make(map[string]bool)
+				for _, activity := range activities {
+					files[activity.Path] = true
+				}
+				itemStats.Files = len(files)
+			}
+		}
+		stats[item.ID] = itemStats
+	}
+	if d.gitEventStore != (store.GitEventStore{}) {
+		events, err := d.gitEventStore.RecentByWorkspace(ctx, workspaceRoot, since, 10000)
+		if err == nil {
+			for _, event := range events {
+				itemStats := stats[event.SessionID]
+				itemStats.GitEvents++
+				stats[event.SessionID] = itemStats
+			}
+		}
+	}
+	return stats
+}
+
+func sessionDuration(item session.Session, now time.Time) string {
+	end := item.LastSeenAt
+	if item.Status != session.StatusClosed {
+		end = now.Unix()
+	}
+	if item.StartedAt <= 0 || end <= item.StartedAt {
+		return "unknown"
+	}
+	return (time.Duration(end-item.StartedAt) * time.Second).Round(time.Second).String()
 }
 
 func renderHistory(workspaceRoot string, items []session.Session, activitySummaries map[string][]string, showLineage bool, now time.Time) string {

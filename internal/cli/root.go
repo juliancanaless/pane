@@ -41,7 +41,7 @@ Usage:
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
   pane spawn <command> [args...]    Run a command as a child Pane session
-  pane history [--since <duration>] [--repo] [--lineage]
+  pane history [--since <duration>] [--repo] [--lineage] [--format work-log]
                                     Show recent sessions for this workspace or repository
   pane sessions prune              Close stale active/idle sessions in this workspace
 
@@ -489,7 +489,7 @@ func withEnv(base []string, overrides map[string]string) []string {
 }
 
 func runHistory(args []string, stdout io.Writer) error {
-	since, repoScope, lineage, err := parseHistoryArgs(args)
+	since, repoScope, lineage, format, err := parseHistoryArgs(args)
 	if err != nil {
 		return err
 	}
@@ -504,6 +504,9 @@ func runHistory(args []string, stdout io.Writer) error {
 	if lineage {
 		payload["lineage"] = true
 	}
+	if format != "" {
+		payload["format"] = format
+	}
 	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionHistory, Payload: payload})
 	if err != nil {
 		return err
@@ -515,31 +518,41 @@ func runHistory(args []string, stdout io.Writer) error {
 	return nil
 }
 
-func parseHistoryArgs(args []string) (int64, bool, bool, error) {
+func parseHistoryArgs(args []string) (int64, bool, bool, string, error) {
 	var since int64
 	repoScope := false
 	lineage := false
+	format := ""
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--repo":
 			repoScope = true
 		case "--lineage":
 			lineage = true
+		case "--format":
+			if i+1 >= len(args) {
+				return 0, false, false, "", errors.New("usage: pane history [--since <duration>] [--repo] [--lineage] [--format work-log]")
+			}
+			format = args[i+1]
+			if format != "work-log" {
+				return 0, false, false, "", errors.New("unsupported history format: " + format)
+			}
+			i++
 		case "--since":
 			if i+1 >= len(args) {
-				return 0, false, false, errors.New("usage: pane history [--since <duration>] [--repo] [--lineage]")
+				return 0, false, false, "", errors.New("usage: pane history [--since <duration>] [--repo] [--lineage] [--format work-log]")
 			}
 			duration, err := time.ParseDuration(args[i+1])
 			if err != nil {
-				return 0, false, false, fmt.Errorf("invalid --since duration: %w", err)
+				return 0, false, false, "", fmt.Errorf("invalid --since duration: %w", err)
 			}
 			since = time.Now().Add(-duration).Unix()
 			i++
 		default:
-			return 0, false, false, errors.New("usage: pane history [--since <duration>] [--repo] [--lineage]")
+			return 0, false, false, "", errors.New("usage: pane history [--since <duration>] [--repo] [--lineage] [--format work-log]")
 		}
 	}
-	return since, repoScope, lineage, nil
+	return since, repoScope, lineage, format, nil
 }
 
 func runStatus(args []string, stdout io.Writer) error {
