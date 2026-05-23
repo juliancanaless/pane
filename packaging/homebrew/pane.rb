@@ -6,7 +6,10 @@ class Pane < Formula
   head "https://github.com/juliancanaless/pane.git", branch: "main"
 
   on_macos do
-    if Hardware::CPU.intel?
+    if Hardware::CPU.arm?
+      url "https://github.com/juliancanaless/pane/releases/download/v0.1.1/pane-v0.1.1-darwin-arm64.tar.gz"
+      sha256 "3717f29b2cf2f4f0e309322c6a290a50d8a470ee9c7fcefa40ea5fb3d0e8c97c"
+    else
       url "https://github.com/juliancanaless/pane/releases/download/v0.1.1/pane-v0.1.1-darwin-amd64.tar.gz"
       sha256 "0dc5631eb829677d3456b468e2990b1c18ea2b4fc115e3916abaf40626e673ee"
     end

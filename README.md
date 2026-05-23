@@ -41,7 +41,7 @@ See [`USE_CASES.md`](USE_CASES.md) for the fuller use-case narrative.
 
 ## Install
 
-Pane v0.1.1 can be installed with the Homebrew tap or built from source. See [`INSTALL.md`](INSTALL.md).
+Pane v0.1.1 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
 
 Quick Homebrew install:
 
