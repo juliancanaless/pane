@@ -8,13 +8,14 @@ import (
 )
 
 type Environment struct {
-	PaneID        string
-	TTY           string
-	WorkspaceRoot string
-	CWD           string
-	Branch        string
-	RepoID        string
-	GitCommonDir  string
+	PaneID          string
+	TTY             string
+	WorkspaceRoot   string
+	CWD             string
+	Branch          string
+	RepoID          string
+	GitCommonDir    string
+	ParentSessionID string
 }
 
 func DetectEnvironment() (Environment, error) {
@@ -30,13 +31,14 @@ func DetectEnvironment() (Environment, error) {
 		return Environment{}, err
 	}
 	return Environment{
-		PaneID:        DetectPaneID(tty),
-		TTY:           tty,
-		WorkspaceRoot: workspaceRoot,
-		CWD:           cwd,
-		Branch:        branch,
-		RepoID:        repository.ID,
-		GitCommonDir:  repository.GitCommonDir,
+		PaneID:          DetectPaneID(tty),
+		TTY:             tty,
+		WorkspaceRoot:   workspaceRoot,
+		CWD:             cwd,
+		Branch:          branch,
+		RepoID:          repository.ID,
+		GitCommonDir:    repository.GitCommonDir,
+		ParentSessionID: os.Getenv("PANE_PARENT_SESSION_ID"),
 	}, nil
 }
 

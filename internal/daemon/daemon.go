@@ -241,13 +241,14 @@ func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.R
 
 func (d *Daemon) handleSessionInit(request protocol.Request) protocol.Response {
 	input := session.InitInput{
-		PaneID:        payloadString(request, "pane_id"),
-		TTY:           payloadString(request, "tty"),
-		WorkspaceRoot: payloadString(request, "workspace_root"),
-		CWD:           payloadString(request, "cwd"),
-		Branch:        payloadString(request, "branch"),
-		RepoID:        payloadString(request, "repo_id"),
-		GitCommonDir:  payloadString(request, "git_common_dir"),
+		PaneID:          payloadString(request, "pane_id"),
+		TTY:             payloadString(request, "tty"),
+		WorkspaceRoot:   payloadString(request, "workspace_root"),
+		CWD:             payloadString(request, "cwd"),
+		Branch:          payloadString(request, "branch"),
+		RepoID:          payloadString(request, "repo_id"),
+		GitCommonDir:    payloadString(request, "git_common_dir"),
+		ParentSessionID: payloadString(request, "parent_session_id"),
 	}
 	result, err := d.manager.Init(context.Background(), input)
 	if err != nil {
@@ -261,13 +262,14 @@ func (d *Daemon) handleSessionInit(request protocol.Request) protocol.Response {
 
 func (d *Daemon) handleSessionHeartbeat(request protocol.Request) protocol.Response {
 	input := session.InitInput{
-		PaneID:        payloadString(request, "pane_id"),
-		TTY:           payloadString(request, "tty"),
-		WorkspaceRoot: payloadString(request, "workspace_root"),
-		CWD:           payloadString(request, "cwd"),
-		Branch:        payloadString(request, "branch"),
-		RepoID:        payloadString(request, "repo_id"),
-		GitCommonDir:  payloadString(request, "git_common_dir"),
+		PaneID:          payloadString(request, "pane_id"),
+		TTY:             payloadString(request, "tty"),
+		WorkspaceRoot:   payloadString(request, "workspace_root"),
+		CWD:             payloadString(request, "cwd"),
+		Branch:          payloadString(request, "branch"),
+		RepoID:          payloadString(request, "repo_id"),
+		GitCommonDir:    payloadString(request, "git_common_dir"),
+		ParentSessionID: payloadString(request, "parent_session_id"),
 	}
 	result, err := d.manager.Heartbeat(context.Background(), input)
 	if err != nil {

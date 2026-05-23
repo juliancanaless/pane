@@ -79,6 +79,7 @@ It exposes commands such as:
 - `pane board`
 - `pane summary`
 - `pane continue <session-id>`
+- `pane spawn <command> [args...]`
 - `pane history [--since <duration>]`
 - `pane ask <session-id> <message>`
 - `pane inbox`
@@ -166,7 +167,8 @@ Future stores:
 
 ### Session layer: `internal/session`
 
-A Pane session is tied to the terminal pane/workspace, not to an agent process.
+A Pane session is tied to the terminal pane/workspace, not to an agent process. Spawned child commands can override that identity with `PANE_PANE_ID` and link to a parent with `PANE_PARENT_SESSION_ID`, which is how first-pass worker/child session hierarchies are represented without a separate hierarchy table.
+
 
 Identity priority:
 

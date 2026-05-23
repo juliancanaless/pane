@@ -138,6 +138,45 @@ func TestManagerInitCreatesWhenNoResumableSession(t *testing.T) {
 	}
 }
 
+func TestManagerInitCreatesChildSessionFromParentEnv(t *testing.T) {
+	store := &fakeStore{
+		findErr: ErrNotFound,
+		byID:    Session{ID: "session-parent", WorkspaceRoot: "/repo", LastIntent: "split out worker task"},
+	}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	result, err := manager.Init(context.Background(), InitInput{
+		PaneID:          "spawn:worker",
+		WorkspaceRoot:   "/repo",
+		CWD:             "/repo",
+		Branch:          "main",
+		ParentSessionID: "session-parent",
+	})
+	if err != nil {
+		t.Fatalf("Init returned error: %v", err)
+	}
+	if result.Session.ParentID != "session-parent" {
+		t.Fatalf("parent id = %q", result.Session.ParentID)
+	}
+	if result.Session.LastIntent != "split out worker task" {
+		t.Fatalf("intent = %q", result.Session.LastIntent)
+	}
+}
+
+func TestManagerInitRejectsChildFromDifferentWorkspace(t *testing.T) {
+	store := &fakeStore{
+		findErr: ErrNotFound,
+		byID:    Session{ID: "session-parent", WorkspaceRoot: "/other"},
+	}
+	manager := NewManager(store)
+
+	_, err := manager.Init(context.Background(), InitInput{WorkspaceRoot: "/repo", ParentSessionID: "session-parent"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 func TestManagerInitResumesExistingSession(t *testing.T) {
 	store := &fakeStore{resumable: Session{ID: "session-existing", Status: StatusIdle}}
 	manager := NewManager(store)

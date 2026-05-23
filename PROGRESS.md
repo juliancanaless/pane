@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, V3.4, and D.0 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, and first-pass worktree-aware repo identity for same-repository board/history/preflight awareness.
+**V3.1, V3.2, V3.3, V3.4, D.0, and D.1 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, and first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -770,6 +770,32 @@ Still needed:
 - normalize semantic graph keys across worktrees by repo-relative path instead of workspace-root-relative path only
 - richer UI controls for workspace-only vs repo-wide defaults
 - dogfood with actual `git worktree` sibling checkouts
+
+### Phase 25 — Worker/child session hierarchies
+
+Status: first pass implemented (D.1).
+
+Goal:
+
+Let a parent agent spawn subtasks whose sessions register automatically and remain visible as children in Pane's board/history.
+
+Completed:
+
+1. Added `pane spawn <command> [args...]` to create a child session, run a foreground child command, and close the child session after command exit.
+2. Added `PANE_PANE_ID` override support so spawned children get distinct Pane identities even when running in the same terminal/TTY.
+3. Added `PANE_PARENT_SESSION_ID` environment inheritance so `pane init`/`pane heartbeat` can create a child session outside `pane spawn` when launched by a parent-aware wrapper.
+4. Child sessions inherit the parent session's current intent and store `parent_session_id` using the existing session lineage column.
+5. Board rendering now surfaces parent and child links inline.
+6. Added session manager, pane identity, and board-render tests for child hierarchy behavior.
+7. Smoke-tested with a temporary daemon/DB/socket: parent `pane spawn sh -c './bin/pane status; ./bin/pane board'` showed the child active with its parent and then recorded the child as closed in history after exit.
+
+Still needed:
+
+- dogfood with real agent workers launched in separate terminal panes/Zellij panes
+- decide whether `pane spawn` should support detached/background mode
+- richer tree rendering for deep hierarchies rather than inline parent/child labels
+- child-specific intents or task descriptions beyond inheriting parent intent
+- optional session close behavior for long-running children that should remain active after wrapper exit
 
 ## Testing plan
 

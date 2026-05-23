@@ -3,13 +3,14 @@ package protocol
 import "github.com/juliancanalez/pane/internal/session"
 
 type SessionEnvironmentPayload struct {
-	PaneID        string `json:"pane_id"`
-	TTY           string `json:"tty"`
-	WorkspaceRoot string `json:"workspace_root"`
-	CWD           string `json:"cwd"`
-	Branch        string `json:"branch"`
-	RepoID        string `json:"repo_id"`
-	GitCommonDir  string `json:"git_common_dir"`
+	PaneID          string `json:"pane_id"`
+	TTY             string `json:"tty"`
+	WorkspaceRoot   string `json:"workspace_root"`
+	CWD             string `json:"cwd"`
+	Branch          string `json:"branch"`
+	RepoID          string `json:"repo_id"`
+	GitCommonDir    string `json:"git_common_dir"`
+	ParentSessionID string `json:"parent_session_id"`
 }
 
 type SessionIntentPayload struct {
@@ -54,7 +55,7 @@ func ContinuePayload(value session.Environment, parentSessionID string) map[stri
 }
 
 func EnvironmentPayload(value session.Environment) map[string]any {
-	return map[string]any{
+	payload := map[string]any{
 		"pane_id":        value.PaneID,
 		"tty":            value.TTY,
 		"workspace_root": value.WorkspaceRoot,
@@ -63,6 +64,10 @@ func EnvironmentPayload(value session.Environment) map[string]any {
 		"repo_id":        value.RepoID,
 		"git_common_dir": value.GitCommonDir,
 	}
+	if value.ParentSessionID != "" {
+		payload["parent_session_id"] = value.ParentSessionID
+	}
+	return payload
 }
 
 func IntentPayload(value session.Environment, intent string) map[string]any {

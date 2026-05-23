@@ -35,13 +35,14 @@ type Manager struct {
 }
 
 type InitInput struct {
-	PaneID        string
-	TTY           string
-	WorkspaceRoot string
-	CWD           string
-	Branch        string
-	RepoID        string
-	GitCommonDir  string
+	PaneID          string
+	TTY             string
+	WorkspaceRoot   string
+	CWD             string
+	Branch          string
+	RepoID          string
+	GitCommonDir    string
+	ParentSessionID string
 }
 
 type InitResult struct {
@@ -71,6 +72,11 @@ func (m Manager) Init(ctx context.Context, input InitInput) (InitResult, error) 
 		return InitResult{}, err
 	}
 
+	parent, err := m.parentForInit(ctx, input)
+	if err != nil {
+		return InitResult{}, err
+	}
+
 	created := Session{
 		ID:            newID(),
 		PaneID:        input.PaneID,
@@ -80,9 +86,11 @@ func (m Manager) Init(ctx context.Context, input InitInput) (InitResult, error) 
 		Branch:        input.Branch,
 		RepoID:        input.RepoID,
 		GitCommonDir:  input.GitCommonDir,
+		LastIntent:    parent.LastIntent,
 		StartedAt:     now,
 		LastSeenAt:    now,
 		Status:        StatusActive,
+		ParentID:      parent.ID,
 	}
 	return InitResult{Session: created}, m.store.Save(ctx, created)
 }
@@ -132,6 +140,20 @@ func (m Manager) ListActiveByRepo(ctx context.Context, repoID string) ([]Session
 
 func (m Manager) ListRecentByRepo(ctx context.Context, repoID string, limit int) ([]Session, error) {
 	return m.store.ListRecentByRepo(ctx, repoID, limit)
+}
+
+func (m Manager) parentForInit(ctx context.Context, input InitInput) (Session, error) {
+	if input.ParentSessionID == "" {
+		return Session{}, nil
+	}
+	parent, err := m.store.FindByID(ctx, input.ParentSessionID)
+	if err != nil {
+		return Session{}, err
+	}
+	if parent.WorkspaceRoot != input.WorkspaceRoot {
+		return Session{}, errors.New("cannot create a child session from a different workspace")
+	}
+	return parent, nil
 }
 
 func (m Manager) Continue(ctx context.Context, input InitInput, parentID string) (InitResult, error) {

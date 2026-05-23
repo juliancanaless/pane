@@ -2,11 +2,14 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,6 +39,7 @@ Usage:
   pane board [--all] [--repo]       Show the workspace or same-repository awareness board
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
+  pane spawn <command> [args...]    Run a command as a child Pane session
   pane history [--since <duration>] [--repo]
                                     Show recent sessions for this workspace or repository
   pane sessions prune              Close stale active/idle sessions in this workspace
@@ -70,6 +74,8 @@ Environment overrides:
   PANE_SOCKET_PATH                  Use a custom daemon socket path
   PANE_PID_PATH                     Use a custom daemon PID file path
   PANE_LOG_PATH or PANE_LOG         Use a custom daemon log path
+  PANE_PANE_ID                      Override detected terminal-pane identity
+  PANE_PARENT_SESSION_ID            Link newly initialized session to a parent
 `
 
 func Run(args []string, stdout, stderr io.Writer) error {
@@ -97,6 +103,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runSummary(args[1:], stdout)
 	case "continue":
 		return runContinue(args[1:], stdout)
+	case "spawn":
+		return runSpawn(args[1:], stdout, stderr)
 	case "history":
 		return runHistory(args[1:], stdout)
 	case "intent":
@@ -374,6 +382,99 @@ func runContinue(args []string, stdout io.Writer) error {
 	}
 	_, _ = fmt.Fprintf(stdout, "session %s: %s\ncontinued from: %s\nbranch: %s\nworkspace: %s\n", state, payloadString(response, "session_id"), payloadString(response, "parent_session_id"), payloadString(response, "branch"), payloadString(response, "workspace_root"))
 	return nil
+}
+
+func runSpawn(args []string, stdout, stderr io.Writer) error {
+	if len(args) == 0 {
+		return errors.New("usage: pane spawn <command> [args...]")
+	}
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return err
+	}
+	current, err := currentOrInitializedSession(env)
+	if err != nil {
+		return err
+	}
+
+	childEnv := env
+	childEnv.PaneID = "spawn:" + randomToken(12)
+	childEnv.ParentSessionID = payloadString(current, "session_id")
+	childResponse, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionInit, Payload: protocol.EnvironmentPayload(childEnv)})
+	if err != nil {
+		return err
+	}
+	if !childResponse.OK {
+		return errors.New(childResponse.Error)
+	}
+	childSessionID := payloadString(childResponse, "session_id")
+	_, _ = fmt.Fprintf(stdout, "child session: %s\nparent session: %s\n", childSessionID, childEnv.ParentSessionID)
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	cmd.Env = withEnv(os.Environ(), map[string]string{
+		"PANE_PANE_ID":           childEnv.PaneID,
+		"PANE_PARENT_SESSION_ID": childEnv.ParentSessionID,
+		"PANE_SESSION_ID":        childSessionID,
+	})
+	runErr := cmd.Run()
+
+	closeResponse, closeErr := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionClose, Payload: protocol.EnvironmentPayload(childEnv)})
+	if closeErr != nil {
+		_, _ = fmt.Fprintf(stderr, "[Pane] failed to close child session: %v\n", closeErr)
+	} else if !closeResponse.OK {
+		_, _ = fmt.Fprintf(stderr, "[Pane] failed to close child session: %s\n", closeResponse.Error)
+	}
+	return runErr
+}
+
+func currentOrInitializedSession(env session.Environment) (protocol.Response, error) {
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionStatus, Payload: protocol.EnvironmentPayload(env)})
+	if err == nil && response.OK {
+		return response, nil
+	}
+	response, err = sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionInit, Payload: protocol.EnvironmentPayload(env)})
+	if err != nil {
+		return protocol.Response{}, err
+	}
+	if !response.OK {
+		return protocol.Response{}, errors.New(response.Error)
+	}
+	return response, nil
+}
+
+func randomToken(bytesLen int) string {
+	buf := make([]byte, bytesLen)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(buf)
+}
+
+func withEnv(base []string, overrides map[string]string) []string {
+	keys := make([]string, 0, len(overrides))
+	for key := range overrides {
+		keys = append(keys, key)
+	}
+	filtered := make([]string, 0, len(base)+len(overrides))
+	for _, item := range base {
+		keep := true
+		for _, key := range keys {
+			if strings.HasPrefix(item, key+"=") {
+				keep = false
+				break
+			}
+		}
+		if keep {
+			filtered = append(filtered, item)
+		}
+	}
+	for key, value := range overrides {
+		filtered = append(filtered, key+"="+value)
+	}
+	return filtered
 }
 
 func runHistory(args []string, stdout io.Writer) error {

@@ -33,6 +33,26 @@ func TestRenderBoard(t *testing.T) {
 	}
 }
 
+func TestRenderBoardWithSessionHierarchy(t *testing.T) {
+	value := Board{
+		WorkspaceRoot: "/workspace",
+		Sessions: []Session{
+			{ID: "session-parent", ShortID: "parent", Name: "coordinator", Status: session.StatusActive, CWD: "/workspace", LastSeenAt: 100},
+			{ID: "session-child", ShortID: "child", ParentID: "session-parent", Status: session.StatusActive, CWD: "/workspace", LastSeenAt: 100},
+		},
+	}
+
+	got := Render(value, time.Unix(130, 0))
+	for _, want := range []string{
+		"Children: child",
+		"Parent: coordinator",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Render output missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestRenderBoardWithOverlap(t *testing.T) {
 	value := Board{
 		WorkspaceRoot: "/workspace",

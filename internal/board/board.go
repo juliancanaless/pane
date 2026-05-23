@@ -44,6 +44,7 @@ type Session struct {
 	CWD               string
 	WorkspaceRoot     string
 	RepoID            string
+	ParentID          string
 	LastIntent        string
 	LastSeenAt        int64
 	UnreadMessages    int
@@ -75,6 +76,7 @@ func FromSessionsWithStats(workspaceRoot string, sessions []session.Session, mes
 			CWD:               value.CWD,
 			WorkspaceRoot:     value.WorkspaceRoot,
 			RepoID:            value.RepoID,
+			ParentID:          value.ParentID,
 			LastIntent:        value.LastIntent,
 			LastSeenAt:        value.LastSeenAt,
 			UnreadMessages:    messages.UnreadMessages,

@@ -34,6 +34,13 @@ func Render(value Board, now time.Time) string {
 		}
 		fmt.Fprintf(&out, "\n")
 		fmt.Fprintf(&out, "  Intent: %s\n", displayIntent(item.LastIntent))
+		if item.ParentID != "" {
+			fmt.Fprintf(&out, "  Parent: %s\n", sessionDisplayName(value.Sessions, item.ParentID))
+		}
+		children := childDisplayNames(value.Sessions, item.ID)
+		if len(children) > 0 {
+			fmt.Fprintf(&out, "  Children: %s\n", strings.Join(children, ", "))
+		}
 		workspaceRoot := value.WorkspaceRoot
 		if item.WorkspaceRoot != "" {
 			workspaceRoot = item.WorkspaceRoot
@@ -108,6 +115,16 @@ func Render(value Board, now time.Time) string {
 	}
 
 	return out.String()
+}
+
+func childDisplayNames(sessions []Session, parentID string) []string {
+	children := make([]string, 0)
+	for _, item := range sessions {
+		if item.ParentID == parentID {
+			children = append(children, sessionDisplayName(sessions, item.ID))
+		}
+	}
+	return children
 }
 
 func sessionDisplayName(sessions []Session, id string) string {

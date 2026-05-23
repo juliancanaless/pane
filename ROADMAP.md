@@ -258,6 +258,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.1 — Worker/child session hierarchies
 
+**Status:** first pass implemented.
+
 **Why:** The original vision describes agents spawning child agents for subtasks. Those child sessions should register with Pane automatically.
 
 **What:**
@@ -265,6 +267,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 - Parent session sees child session status without polling
 - Session hierarchy visible in board and history
 - Child sessions inherit parent workspace and intent context
+
+**Exit criteria:** A parent can run `pane spawn <command>`, the child is registered with `parent_session_id`, inherits the parent intent, appears in `pane board` while running, and is recorded in history after exit — first pass done for CLI-spawned local child commands and `PANE_PARENT_SESSION_ID`/`PANE_PANE_ID` automatic registration.
 
 ### D.2 — Richer session lineage
 
