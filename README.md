@@ -216,6 +216,7 @@ Known limitations:
 ## Project docs
 
 - [`INSTALL.md`](INSTALL.md) — installation and setup
+- [`FAQ.md`](FAQ.md) — common user questions and edge cases
 - [`AGENTS.md`](AGENTS.md) — operating contract for agents in this repo
 - [`docs/for-agents.md`](docs/for-agents.md) — command guide for AI coding agents using Pane
 - [`docs/demo.md`](docs/demo.md) — text demo transcript for humans and agents

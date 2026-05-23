@@ -62,3 +62,5 @@ pane history --format work-log
 - a background Pane daemon
 
 Run `pane doctor` to see the paths and health checks.
+
+For common setup and workflow questions, see [`FAQ.md`](FAQ.md).
