@@ -99,10 +99,17 @@ func HistoryRequestPayload(value session.Environment, since int64) map[string]an
 }
 
 func StateRequestPayload(value session.Environment, key, jsonValue, prefix string) map[string]any {
+	return StateRequestPayloadWithScope(value, key, jsonValue, prefix, "")
+}
+
+func StateRequestPayloadWithScope(value session.Environment, key, jsonValue, prefix, scope string) map[string]any {
 	payload := EnvironmentPayload(value)
 	payload["key"] = key
 	payload["value_json"] = jsonValue
 	payload["prefix"] = prefix
+	if scope != "" {
+		payload["scope"] = scope
+	}
 	return payload
 }
 

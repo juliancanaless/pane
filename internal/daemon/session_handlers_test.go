@@ -100,6 +100,41 @@ func TestSessionAndBoardHandlers(t *testing.T) {
 	}
 }
 
+func TestStateGlobalScopeAndSummaryState(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.stateStore = store.NewAgentStateStore(db)
+	d.activityStore = store.NewFileActivityStore(db)
+	env := map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "cwd": "/workspace", "branch": "main"}
+	init := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: env}, func() {})
+	if !init.OK {
+		t.Fatalf("init failed: %#v", init)
+	}
+
+	setSummary := d.Handle(protocol.Request{Type: protocol.RequestStateSet, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "key": "summary.note", "value_json": `{"text":"watch auth"}`}}, func() {})
+	if !setSummary.OK {
+		t.Fatalf("summary state set failed: %#v", setSummary)
+	}
+	summaryResponse := d.Handle(protocol.Request{Type: protocol.RequestGetSummary, Payload: env}, func() {})
+	if !summaryResponse.OK || !strings.Contains(summaryResponse.Payload["text"].(string), "Shared state:") || !strings.Contains(summaryResponse.Payload["text"].(string), "summary.note") {
+		t.Fatalf("summary should include summary.* state: %#v", summaryResponse)
+	}
+
+	setGlobal := d.Handle(protocol.Request{Type: protocol.RequestStateSet, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/workspace", "scope": "global", "key": "agent.memory", "value_json": `{"status":"global"}`}}, func() {})
+	if !setGlobal.OK {
+		t.Fatalf("global state set failed: %#v", setGlobal)
+	}
+	getGlobal := d.Handle(protocol.Request{Type: protocol.RequestStateGet, Payload: map[string]any{"workspace_root": "/other", "scope": "global", "key": "agent.memory"}}, func() {})
+	if !getGlobal.OK || getGlobal.Payload["value_json"] != `{"status":"global"}` {
+		t.Fatalf("global state get failed: %#v", getGlobal)
+	}
+}
+
 func TestRenderHistoryShowsLineageChains(t *testing.T) {
 	items := []session.Session{
 		{ID: "session-root", Name: "root", WorkspaceRoot: "/workspace", CWD: "/workspace", Status: session.StatusClosed, LastIntent: "root work", LastSeenAt: 100},

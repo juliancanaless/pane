@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,10 +58,14 @@ Usage:
   pane inbox                        Show unread coordination messages for this session
   pane reply <message-id> <message> Reply to a coordination thread
 
-  pane state set <key> <json>      Store namespaced JSON state for this workspace
-  pane state get <key>             Read workspace state as JSON
-  pane state list [prefix]         List workspace state keys and JSON values
-  pane state delete <key>          Delete workspace state
+  pane state set [--global] <key> <json>
+                                    Store namespaced JSON state
+  pane state get [--global] <key>  Read state as JSON
+  pane state list [--global] [prefix]
+                                    List state keys, owners, and JSON values
+  pane state namespaces [--global] Show state namespaces, key counts, and owners
+  pane state delete [--global] <key>
+                                    Delete state
 
   pane analyze symbols <file>      Parse a source file and print a JSON symbol table
   pane analyze deps <file>         Parse imports/use/require edges for a source file
@@ -820,7 +825,7 @@ func storeDependencies(dependencies []analysis.Dependency) []store.DependencyEdg
 
 func runState(args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: pane state set|get|list|delete ...")
+		return errors.New("usage: pane state set|get|list|namespaces|delete ...")
 	}
 	switch args[0] {
 	case "set":
@@ -829,25 +834,45 @@ func runState(args []string, stdout io.Writer) error {
 		return runStateGet(args[1:], stdout)
 	case "list":
 		return runStateList(args[1:], stdout)
+	case "namespaces":
+		return runStateNamespaces(args[1:], stdout)
 	case "delete":
 		return runStateDelete(args[1:], stdout)
 	default:
-		return errors.New("usage: pane state set|get|list|delete ...")
+		return errors.New("usage: pane state set|get|list|namespaces|delete ...")
 	}
 }
 
-func runStateSet(args []string, stdout io.Writer) error {
-	if len(args) != 2 {
-		return errors.New("usage: pane state set <key> <json>")
+type stateArgs struct {
+	Scope string
+	Rest  []string
+}
+
+func parseStateScope(args []string) stateArgs {
+	parsed := stateArgs{Rest: make([]string, 0, len(args))}
+	for _, arg := range args {
+		if arg == "--global" {
+			parsed.Scope = "global"
+			continue
+		}
+		parsed.Rest = append(parsed.Rest, arg)
 	}
-	if !json.Valid([]byte(args[1])) {
+	return parsed
+}
+
+func runStateSet(args []string, stdout io.Writer) error {
+	parsed := parseStateScope(args)
+	if len(parsed.Rest) != 2 {
+		return errors.New("usage: pane state set [--global] <namespace.key> <json>")
+	}
+	if !json.Valid([]byte(parsed.Rest[1])) {
 		return errors.New("state value must be valid JSON")
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateSet, Payload: protocol.StateRequestPayload(env, args[0], args[1], "")})
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateSet, Payload: protocol.StateRequestPayloadWithScope(env, parsed.Rest[0], parsed.Rest[1], "", parsed.Scope)})
 	if err != nil {
 		return err
 	}
@@ -859,14 +884,15 @@ func runStateSet(args []string, stdout io.Writer) error {
 }
 
 func runStateGet(args []string, stdout io.Writer) error {
-	if len(args) != 1 {
-		return errors.New("usage: pane state get <key>")
+	parsed := parseStateScope(args)
+	if len(parsed.Rest) != 1 {
+		return errors.New("usage: pane state get [--global] <key>")
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateGet, Payload: protocol.StateRequestPayload(env, args[0], "", "")})
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateGet, Payload: protocol.StateRequestPayloadWithScope(env, parsed.Rest[0], "", "", parsed.Scope)})
 	if err != nil {
 		return err
 	}
@@ -878,39 +904,104 @@ func runStateGet(args []string, stdout io.Writer) error {
 }
 
 func runStateList(args []string, stdout io.Writer) error {
-	if len(args) > 1 {
-		return errors.New("usage: pane state list [prefix]")
+	parsed := parseStateScope(args)
+	if len(parsed.Rest) > 1 {
+		return errors.New("usage: pane state list [--global] [prefix]")
 	}
 	prefix := ""
-	if len(args) == 1 {
-		prefix = args[0]
+	if len(parsed.Rest) == 1 {
+		prefix = parsed.Rest[0]
 	}
-	env, err := session.DetectEnvironment()
+	response, err := stateListResponse(prefix, parsed.Scope)
 	if err != nil {
 		return err
-	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateList, Payload: protocol.StateRequestPayload(env, "", "", prefix)})
-	if err != nil {
-		return err
-	}
-	if !response.OK {
-		return errors.New(response.Error)
 	}
 	for _, item := range payloadMaps(response, "items") {
-		_, _ = fmt.Fprintf(stdout, "%s\t%s\n", mapString(item, "key"), mapString(item, "value_json"))
+		_, _ = fmt.Fprintf(stdout, "%s\t%s\t%s\n", mapString(item, "key"), mapString(item, "session_id"), mapString(item, "value_json"))
 	}
 	return nil
 }
 
+func runStateNamespaces(args []string, stdout io.Writer) error {
+	parsed := parseStateScope(args)
+	if len(parsed.Rest) != 0 {
+		return errors.New("usage: pane state namespaces [--global]")
+	}
+	response, err := stateListResponse("", parsed.Scope)
+	if err != nil {
+		return err
+	}
+	for _, line := range namespaceLines(payloadMaps(response, "items")) {
+		_, _ = fmt.Fprintf(stdout, "%s\t%d\t%s\n", line.Namespace, line.Count, line.SessionID)
+	}
+	return nil
+}
+
+func stateListResponse(prefix, scope string) (protocol.Response, error) {
+	env, err := session.DetectEnvironment()
+	if err != nil {
+		return protocol.Response{}, err
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateList, Payload: protocol.StateRequestPayloadWithScope(env, "", "", prefix, scope)})
+	if err != nil {
+		return protocol.Response{}, err
+	}
+	if !response.OK {
+		return protocol.Response{}, errors.New(response.Error)
+	}
+	return response, nil
+}
+
+type namespaceLine struct {
+	Namespace string
+	Count     int
+	SessionID string
+	UpdatedAt int64
+}
+
+func namespaceLines(items []map[string]any) []namespaceLine {
+	byNamespace := make(map[string]namespaceLine)
+	for _, item := range items {
+		namespace := stateNamespace(mapString(item, "key"))
+		line := byNamespace[namespace]
+		line.Namespace = namespace
+		line.Count++
+		updatedAt := mapInt64(item, "updated_at")
+		if updatedAt >= line.UpdatedAt {
+			line.UpdatedAt = updatedAt
+			line.SessionID = mapString(item, "session_id")
+		}
+		byNamespace[namespace] = line
+	}
+	namespaces := make([]string, 0, len(byNamespace))
+	for namespace := range byNamespace {
+		namespaces = append(namespaces, namespace)
+	}
+	sort.Strings(namespaces)
+	lines := make([]namespaceLine, 0, len(namespaces))
+	for _, namespace := range namespaces {
+		lines = append(lines, byNamespace[namespace])
+	}
+	return lines
+}
+
+func stateNamespace(key string) string {
+	if idx := strings.Index(key, "."); idx > 0 {
+		return key[:idx]
+	}
+	return key
+}
+
 func runStateDelete(args []string, stdout io.Writer) error {
-	if len(args) != 1 {
-		return errors.New("usage: pane state delete <key>")
+	parsed := parseStateScope(args)
+	if len(parsed.Rest) != 1 {
+		return errors.New("usage: pane state delete [--global] <key>")
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateDelete, Payload: protocol.StateRequestPayload(env, args[0], "", "")})
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestStateDelete, Payload: protocol.StateRequestPayloadWithScope(env, parsed.Rest[0], "", "", parsed.Scope)})
 	if err != nil {
 		return err
 	}

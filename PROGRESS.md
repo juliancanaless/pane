@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, V3.4, D.0, D.1, and D.2 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, and first-pass lineage visualization in `pane history --lineage`.
+**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, and D.3 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, and first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -92,11 +92,12 @@ Also smoke-tested locally with temporary database/socket paths.
 
 ### Generic agent state
 
-- `pane state set <namespace.key> <json>`
-- `pane state get <namespace.key>`
-- `pane state list [namespace-prefix]`
-- `pane state delete <namespace.key>`
-- workspace-scoped JSON state
+- `pane state set [--global] <namespace.key> <json>`
+- `pane state get [--global] <namespace.key>`
+- `pane state list [--global] [namespace-prefix]`
+- `pane state namespaces [--global]`
+- `pane state delete [--global] <namespace.key>`
+- workspace-scoped and first-pass global JSON state
 - daemon-backed
 
 ### Shell/git integration
@@ -820,6 +821,29 @@ Still needed:
 - structured decisions/open threads attached to lineage nodes
 - richer formatting for branch/worktree changes across a lineage
 - dedicated `pane lineage <session-id>` view if dogfooding shows history is too broad
+
+### Phase 27 — Agent state conventions and cross-agent memory
+
+Status: first pass implemented (D.3).
+
+Goal:
+
+Turn raw workspace key/value state into a more intentional cross-agent memory surface with namespace conventions and selected summary visibility.
+
+Completed:
+
+1. Added `--global` support to `pane state set|get|list|delete` using a reserved global store scope.
+2. Added `pane state namespaces [--global]` to show namespace prefixes, key counts, and latest writer session.
+3. `pane state list` now includes the writer session alongside key/value output, making namespace ownership visible.
+4. `pane summary` now surfaces workspace `summary.*` state entries as shared startup context.
+5. Added CLI namespace parsing/grouping tests, summary render tests, and daemon tests for global state plus `summary.*` rendering.
+
+Still needed:
+
+- stronger namespace ownership conventions beyond first dotted-prefix grouping
+- richer JSON/query output formats for state inspection
+- policy for which global keys should appear in summaries
+- migration path if global state needs its own table instead of a reserved workspace root
 
 ## Testing plan
 

@@ -84,7 +84,7 @@ It exposes commands such as:
 - `pane ask <session-id> <message>`
 - `pane inbox`
 - `pane reply <message-id> <message>`
-- `pane state set|get|list|delete ...`
+- `pane state set|get|list|namespaces|delete ...`
 - `pane git <args...>`
 
 ### CLI layer: `internal/cli`
@@ -118,7 +118,7 @@ Current request families:
 - session init/heartbeat/status/intent/continue/history
 - board/summary
 - message send/list/reply
-- generic state set/get/list/delete
+- generic state set/get/list/namespaces/delete
 - git preflight/record
 
 ### Daemon layer: `internal/daemon`
@@ -159,7 +159,7 @@ Current stores:
 - message store
 - file activity store
 - git event store
-- generic namespaced state store
+- generic namespaced state store; first-pass global state uses reserved workspace root `__global__`, and workspace `summary.*` keys are surfaced in session summaries
 - analysis store for persisted symbol tables and dependency edges
 
 Future stores:

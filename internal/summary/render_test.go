@@ -77,6 +77,21 @@ func TestRenderSummaryWithActivitySummary(t *testing.T) {
 	}
 }
 
+func TestRenderSummaryWithStateItems(t *testing.T) {
+	value := StartupSummary{
+		WorkspaceRoot: "/workspace",
+		Current:       SessionLine{SessionID: "session-a", Status: session.StatusActive},
+		StateItems:    []StateItem{{Key: "summary.note", ValueJSON: `{"text":"remember API rename"}`, SessionID: "session-a", UpdatedAt: 100}},
+	}
+
+	got := Render(value, time.Unix(130, 0))
+	for _, want := range []string{"Shared state:", "summary.note", "remember API rename", "session-a"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Render output missing %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestRenderSummaryWithoutPeers(t *testing.T) {
 	value := StartupSummary{WorkspaceRoot: "/workspace", Current: SessionLine{SessionID: "session-a", Status: session.StatusActive}}
 	got := Render(value, time.Unix(130, 0))

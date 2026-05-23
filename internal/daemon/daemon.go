@@ -464,6 +464,7 @@ func (d *Daemon) handleGetSummary(request protocol.Request) protocol.Response {
 	lineage := d.summaryLineage(context.Background(), workspaceRoot, current)
 	s := summary.FromSessionsWithLineage(workspaceRoot, current, sessions, coordination, activityDigest.FullFiles, lineage)
 	s.ActivitySummaries = activityDigest.Lines()
+	s.StateItems = d.summaryStateItems(context.Background(), workspaceRoot)
 	s.Overlaps = d.summaryOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
 	s.SemanticOverlaps = d.summarySemanticOverlaps(context.Background(), workspaceRoot, current.ID, sessions)
 	text := summary.Render(s, time.Now())
@@ -669,6 +670,21 @@ func (d *Daemon) boardGitEvents(ctx context.Context, workspaceRoot string, sessi
 			Command:        cmd,
 			Timestamp:      e.Timestamp,
 		})
+	}
+	return result
+}
+
+func (d *Daemon) summaryStateItems(ctx context.Context, workspaceRoot string) []summary.StateItem {
+	if d.stateStore == (store.AgentStateStore{}) {
+		return nil
+	}
+	items, err := d.stateStore.List(ctx, workspaceRoot, "summary.")
+	if err != nil {
+		return nil
+	}
+	result := make([]summary.StateItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, summary.StateItem{Key: item.Key, ValueJSON: item.ValueJSON, SessionID: item.SessionID, UpdatedAt: item.UpdatedAt})
 	}
 	return result
 }
@@ -1104,7 +1120,7 @@ func (d *Daemon) handleStateSet(request protocol.Request) protocol.Response {
 	if valueJSON == "" {
 		return protocol.Failure("state value cannot be empty")
 	}
-	item := store.AgentState{WorkspaceRoot: current.WorkspaceRoot, Key: key, ValueJSON: valueJSON, UpdatedAt: time.Now().Unix(), SessionID: current.ID}
+	item := store.AgentState{WorkspaceRoot: stateWorkspaceRoot(request), Key: key, ValueJSON: valueJSON, UpdatedAt: time.Now().Unix(), SessionID: current.ID}
 	if err := d.stateStore.Set(context.Background(), item); err != nil {
 		return protocol.Failure(err.Error())
 	}
@@ -1112,7 +1128,7 @@ func (d *Daemon) handleStateSet(request protocol.Request) protocol.Response {
 }
 
 func (d *Daemon) handleStateGet(request protocol.Request) protocol.Response {
-	workspaceRoot := payloadString(request, "workspace_root")
+	workspaceRoot := stateWorkspaceRoot(request)
 	key := payloadString(request, "key")
 	if key == "" {
 		return protocol.Failure("state key cannot be empty")
@@ -1128,7 +1144,7 @@ func (d *Daemon) handleStateGet(request protocol.Request) protocol.Response {
 }
 
 func (d *Daemon) handleStateList(request protocol.Request) protocol.Response {
-	workspaceRoot := payloadString(request, "workspace_root")
+	workspaceRoot := stateWorkspaceRoot(request)
 	items, err := d.stateStore.List(context.Background(), workspaceRoot, payloadString(request, "prefix"))
 	if err != nil {
 		return protocol.Failure(err.Error())
@@ -1137,7 +1153,7 @@ func (d *Daemon) handleStateList(request protocol.Request) protocol.Response {
 }
 
 func (d *Daemon) handleStateDelete(request protocol.Request) protocol.Response {
-	workspaceRoot := payloadString(request, "workspace_root")
+	workspaceRoot := stateWorkspaceRoot(request)
 	key := payloadString(request, "key")
 	if key == "" {
 		return protocol.Failure("state key cannot be empty")
@@ -1148,6 +1164,13 @@ func (d *Daemon) handleStateDelete(request protocol.Request) protocol.Response {
 		return protocol.Failure(err.Error())
 	}
 	return protocol.Success(map[string]any{"key": key})
+}
+
+func stateWorkspaceRoot(request protocol.Request) string {
+	if payloadString(request, "scope") == "global" {
+		return store.GlobalWorkspaceRoot
+	}
+	return payloadString(request, "workspace_root")
 }
 
 func stateItemsPayload(items []store.AgentState) []map[string]any {

@@ -12,9 +12,17 @@ type StartupSummary struct {
 	Coordination      Coordination
 	RecentFiles       []string
 	ActivitySummaries []string
+	StateItems        []StateItem
 	Lineage           Lineage
 	Overlaps          []OverlapInfo
 	SemanticOverlaps  []SemanticOverlapInfo
+}
+
+type StateItem struct {
+	Key       string
+	ValueJSON string
+	SessionID string
+	UpdatedAt int64
 }
 
 type OverlapInfo struct {

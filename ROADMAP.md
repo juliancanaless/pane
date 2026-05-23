@@ -285,6 +285,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.3 — Agent state conventions and cross-agent memory
 
+**Status:** first pass implemented.
+
 **Why:** V1 `pane state` is raw key-value. Agents need conventions for namespaces, ownership, and cross-agent reading.
 
 **What:**
@@ -293,6 +295,8 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 - Cross-agent memory: one agent can read another's state
 - Surface selected state in summaries when useful
 - Richer query/output formats
+
+**Exit criteria:** Agents can store workspace or global namespaced JSON state, inspect namespace ownership, read another agent's namespace by prefix, and surface selected `summary.*` state during startup summaries — first pass done via `pane state --global`, `pane state namespaces`, owner-aware list output, and summary-state rendering.
 
 ### D.4 — Installer and distribution
 

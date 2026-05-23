@@ -27,6 +27,7 @@ func Render(value StartupSummary, now time.Time) string {
 	}
 
 	renderCoordination(&out, value.Coordination, now)
+	renderStateItems(&out, value.StateItems, now)
 	renderLineage(&out, value.Lineage, now)
 	renderOverlaps(&out, value.Overlaps, value.WorkspaceRoot)
 	renderSemanticOverlaps(&out, value.SemanticOverlaps, value.WorkspaceRoot)
@@ -49,6 +50,20 @@ func Render(value StartupSummary, now time.Time) string {
 	}
 
 	return out.String()
+}
+
+func renderStateItems(out *strings.Builder, items []StateItem, now time.Time) {
+	if len(items) == 0 {
+		return
+	}
+	fmt.Fprintf(out, "\nShared state:\n")
+	for _, item := range items {
+		owner := item.SessionID
+		if owner == "" {
+			owner = "unknown"
+		}
+		fmt.Fprintf(out, "  - %s (%s by %s): %s\n", item.Key, relativeTime(item.UpdatedAt, now), owner, item.ValueJSON)
+	}
 }
 
 func renderLineage(out *strings.Builder, lineage Lineage, now time.Time) {

@@ -51,6 +51,23 @@ func mapString(values map[string]any, key string) string {
 	return text
 }
 
+func mapInt64(values map[string]any, key string) int64 {
+	value, ok := values[key]
+	if !ok || value == nil {
+		return 0
+	}
+	switch typed := value.(type) {
+	case int64:
+		return typed
+	case int:
+		return int64(typed)
+	case float64:
+		return int64(typed)
+	default:
+		return 0
+	}
+}
+
 func payloadBool(response protocol.Response, key string) bool {
 	value, ok := response.Payload[key]
 	if !ok || value == nil {

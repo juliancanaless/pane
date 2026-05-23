@@ -62,7 +62,7 @@ Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Res
 
 **V1 is complete.** Pane is a working local coordination layer with daemon-backed sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, agent state, and session lifecycle cleanup. Dogfooded and verified 2026-05-21.
 
-V2 is complete. V3 semantic intelligence has first-pass symbol/dependency analysis, semantic overlap warnings, and activity decay. Worktree-aware repository identity, worker/child session hierarchies, and richer session lineage have first-pass implementations for repo-wide board/history/preflight awareness, `pane spawn` child tracking, and `pane history --lineage`. See [`ROADMAP.md`](ROADMAP.md).
+V2 is complete. V3 semantic intelligence has first-pass symbol/dependency analysis, semantic overlap warnings, and activity decay. Worktree-aware repository identity, worker/child session hierarchies, richer session lineage, and agent state conventions have first-pass implementations for repo-wide board/history/preflight awareness, `pane spawn` child tracking, `pane history --lineage`, global state, namespace ownership, and `summary.*` startup context. See [`ROADMAP.md`](ROADMAP.md).
 
 ## V1 focus
 
@@ -97,6 +97,10 @@ pane inbox
 pane ask <session-id-or-short-id> "are you still touching auth/session.ts?"
 pane reply <message-id> "done with that file"
 pane state set agent.notes '{"handoff":"tests need review"}'
+pane state set summary.note '{"text":"tests need review"}'
+pane state list agent.
+pane state namespaces
+pane state set --global neon.memory '{"prefers":"workspace summaries"}'
 pane state get agent.notes
 pane git status
 ```
@@ -129,7 +133,7 @@ The repository contains:
 - daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
 - first-pass daemon-observed file activity
 - first-pass sequential continuity with `pane continue` and `pane history`
-- first-pass generic agent state with `pane state set|get|list|delete`
+- first-pass generic agent state with `pane state set|get|list|namespaces|delete`, namespace ownership, global scope, and `summary.*` startup context
 - first-pass `pane git` passthrough, preflight, and event recording
 - Unix socket daemon foundation with first-pass PID/status lifecycle metadata
 - protocol codec and request types

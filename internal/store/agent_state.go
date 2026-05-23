@@ -6,6 +6,8 @@ import (
 	"errors"
 )
 
+const GlobalWorkspaceRoot = "__global__"
+
 type AgentState struct {
 	WorkspaceRoot string
 	Key           string
