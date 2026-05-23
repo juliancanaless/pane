@@ -1,12 +1,12 @@
 # Install Pane
 
-Pane is currently distributed as a source-built local tool. The first public release is `v0.1.0`.
+Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.1`.
 
-## Option 1: Homebrew formula file
+## Option 1: Homebrew tap
 
 ```bash
-curl -L -o pane.rb https://raw.githubusercontent.com/juliancanaless/pane/main/packaging/homebrew/pane.rb
-brew install ./pane.rb
+brew tap juliancanaless/pane
+brew install pane
 pane setup
 pane doctor
 ```
@@ -14,8 +14,8 @@ pane doctor
 For the latest unreleased build from `main`:
 
 ```bash
-curl -L -o pane.rb https://raw.githubusercontent.com/juliancanaless/pane/main/packaging/homebrew/pane.rb
-brew install --HEAD ./pane.rb
+brew tap juliancanaless/pane
+brew install --HEAD pane
 pane setup
 pane doctor
 ```

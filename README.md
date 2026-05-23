@@ -41,13 +41,13 @@ See [`USE_CASES.md`](USE_CASES.md) for the fuller use-case narrative.
 
 ## Install
 
-Pane v0.1.0 can be installed with the checked-in Homebrew formula or built from source. See [`INSTALL.md`](INSTALL.md).
+Pane v0.1.1 can be installed with the Homebrew tap or built from source. See [`INSTALL.md`](INSTALL.md).
 
-Quick Homebrew formula install:
+Quick Homebrew install:
 
 ```bash
-curl -L -o pane.rb https://raw.githubusercontent.com/juliancanaless/pane/main/packaging/homebrew/pane.rb
-brew install ./pane.rb
+brew tap juliancanaless/pane
+brew install pane
 pane setup
 pane doctor
 ```
@@ -188,7 +188,7 @@ make restart # stop the current dev daemon, rebuild, and start it in the backgro
 ./bin/pane daemon status
 ```
 
-`make install` and `pane setup` install both `pane` and the `pane-analyze` helper used for semantic analysis. A head-only Homebrew formula scaffold lives under `packaging/homebrew/`; stable Homebrew distribution still needs tagged release URLs and checksums. CI runs on macOS and Linux with Go/Rust tests, build, and a daemon smoke test.
+`make install` and `pane setup` install both `pane` and the `pane-analyze` helper used for semantic analysis. The Homebrew tap is `juliancanaless/pane`. CI runs on macOS and Linux with Go/Rust tests, build, and a daemon smoke test.
 
 ## Shell integration
 
