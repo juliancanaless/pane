@@ -39,6 +39,19 @@ Pane is meant to solve these workflows first:
 
 See [`USE_CASES.md`](USE_CASES.md) for the fuller use-case narrative.
 
+## Install
+
+Pane v0.1.0 can be installed with the checked-in Homebrew formula or built from source. See [`INSTALL.md`](INSTALL.md).
+
+Quick Homebrew formula install:
+
+```bash
+curl -L -o pane.rb https://raw.githubusercontent.com/juliancanaless/pane/main/packaging/homebrew/pane.rb
+brew install ./pane.rb
+pane setup
+pane doctor
+```
+
 ## What Pane gives agents
 
 Pane gives each session a durable identity tied to the terminal pane, not the agent process. If one agent exits and another starts in the same pane, the new agent can inherit the pane's context: current intent, recent activity, messages, and nearby work from other sessions.
