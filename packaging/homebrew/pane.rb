@@ -1,18 +1,30 @@
 class Pane < Formula
   desc "Shared local memory and coordination for concurrent coding agents"
   homepage "https://github.com/juliancanaless/pane"
-  url "https://github.com/juliancanaless/pane/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "7ff868e96711e355cff77b79614a1c8710f9550288a900e43ad8b19bcd6f407b"
+  version "0.1.0"
   license "MIT"
   head "https://github.com/juliancanaless/pane.git", branch: "main"
 
-  depends_on "go" => :build
-  depends_on "rust" => :build
+  on_macos do
+    if Hardware::CPU.intel?
+      url "https://github.com/juliancanaless/pane/releases/download/v0.1.0/pane-v0.1.0-darwin-amd64.tar.gz"
+      sha256 "990df4d192294c663c4d21b8fd911b16ab51979a8c7e00c2488b937a07f2d5ba"
+    end
+  end
+
+  depends_on "go" => :build if build.head?
+  depends_on "rust" => :build if build.head?
 
   def install
-    system "make", "build"
-    bin.install "bin/pane"
-    bin.install "bin/pane-analyze"
+    if build.head?
+      ENV.prepend_path "PATH", Formula["rust"].opt_bin
+      system "make", "build"
+      bin.install "bin/pane"
+      bin.install "bin/pane-analyze"
+    else
+      bin.install "pane"
+      bin.install "pane-analyze"
+    end
   end
 
   test do

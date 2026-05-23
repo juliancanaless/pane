@@ -213,7 +213,8 @@ func runDoctor(args []string, stdout io.Writer) error {
 }
 
 func checkRuntimeAnalyzer(stdout io.Writer) {
-	path, err := findAnalyzerSource("")
+	executable, _ := os.Executable()
+	path, err := findAnalyzerSource(executable)
 	if err != nil {
 		_, _ = fmt.Fprintf(stdout, "warn analyzer runtime unavailable: %v\n", err)
 		return
