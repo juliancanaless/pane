@@ -9,6 +9,7 @@ brew tap juliancanaless/pane
 brew install pane
 pane setup
 pane doctor
+pane docs quickstart
 ```
 
 For the latest unreleased build from `main`:
@@ -18,6 +19,7 @@ brew tap juliancanaless/pane
 brew install --HEAD pane
 pane setup
 pane doctor
+pane docs quickstart
 ```
 
 ## Option 2: Build from source
@@ -46,6 +48,7 @@ If you do not want setup to edit your shell rc file or start the daemon automati
 
 ```bash
 pane daemon health
+pane docs agents
 pane init
 pane summary
 pane history --format work-log

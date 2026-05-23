@@ -1,5 +1,19 @@
 # Pane FAQ
 
+## Can agents learn how to use Pane from only the installed binary?
+
+Yes. Use the built-in docs:
+
+```bash
+pane docs
+pane docs quickstart
+pane docs agents
+pane docs faq
+pane docs links
+```
+
+These docs are compiled into the `pane` binary so agents can discover the basic operating contract without needing a checked-out source repo.
+
 ## Do agents have to use Pane themselves, or does the human update it?
 
 Agents are expected to use Pane themselves.

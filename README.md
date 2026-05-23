@@ -19,6 +19,8 @@ brew tap juliancanaless/pane
 brew install pane
 pane setup
 pane doctor
+pane docs quickstart
+pane docs agents
 ```
 
 ## Who is this for?
@@ -50,7 +52,15 @@ A Pane-aware agent is expected to:
 
 The board is useful only when participating agents write their own state. Pane is designed so agents can maintain this state themselves.
 
-See [`AGENTS.md`](AGENTS.md) and [`docs/for-agents.md`](docs/for-agents.md) for the explicit operating contract agents should follow.
+Agents can also discover the same guidance from the installed binary:
+
+```bash
+pane docs quickstart
+pane docs agents
+pane docs faq
+```
+
+See [`AGENTS.md`](AGENTS.md) and [`docs/for-agents.md`](docs/for-agents.md) for the full operating contract agents should follow.
 
 ## Core use cases
 

@@ -53,6 +53,7 @@ Usage:
   pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell]
                                     Install local binary, integrations, and start daemon
   pane doctor                       Diagnose local Pane installation and daemon health
+  pane docs [topic]                 Built-in quickstart, agent guide, FAQ, and links
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks
 
@@ -127,6 +128,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runSetup(args[1:], stdout)
 	case "doctor":
 		return runDoctor(args[1:], stdout)
+	case "docs":
+		return runDocs(args[1:], stdout)
 	case "git":
 		return runGit(args[1:], stdout, stderr)
 	case "ask":

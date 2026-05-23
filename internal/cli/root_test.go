@@ -43,6 +43,19 @@ func TestParseStateScope(t *testing.T) {
 	}
 }
 
+func TestRunDocsAgents(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	err := Run([]string{"docs", "agents"}, &stdout, &stderr)
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	for _, want := range []string{"Pane agent operating contract", "pane intent", "human"} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("docs missing %q:\n%s", want, stdout.String())
+		}
+	}
+}
+
 func TestRunUnknownCommand(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	err := Run([]string{"nope"}, &stdout, &stderr)
