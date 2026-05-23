@@ -372,13 +372,10 @@ These are from the original vision but are explicitly out of scope for this plan
 5. `PROGRESS.md` — detailed phase history and implementation notes
 6. `V1_READY.md` — V1 definition (achieved)
 7. `USE_CASES.md` — the problems Pane solves
-8. `REFRAMING.md` — long-term vision context
-9. `docs/architecture.md` — detailed V1 technical architecture
-10. `docs/80-20-overview.md` — V1 product scope rationale
+8. `docs/architecture.md` — detailed V1 technical architecture
+9. `docs/80-20-overview.md` — V1 product scope rationale
 
 ## Source material
-
-`REFRAMING.md` is the product philosophy: Pane as the environment and memory layer for sequential continuity, concurrent coordination, worktree-aware codebase coordination, and agent memory. This roadmap is the operational plan. If they appear to differ in version labels, preserve the reframe as the north star and this roadmap as the implementation sequence.
 
 The original vision and 80/20 scoping documents that informed this project live at:
 

@@ -147,20 +147,16 @@ The key workflow assumption is that agents maintain their own state:
 
 The human can inspect and override, but the human should not be responsible for keeping Pane state current.
 
-## Reframed long-term direction
+## Long-term direction
 
-`REFRAMING.md` expands the lens:
-
-Pane is not just concurrent coordination. It can become the unified persistence and awareness layer for all agent workflows.
-
-Four scopes:
+Pane is the local persistence and awareness layer for agent workflows:
 
 1. **Sequential continuity** — new sessions inherit context from previous sessions.
 2. **Concurrent coordination** — active sessions share board, messages, working sets, warnings.
 3. **Worktree-aware codebase coordination** — agents can use separate Git worktrees for isolation while Pane aggregates shared repository awareness.
 4. **Agent memory** — specialized agents store persistent namespaced state through Pane.
 
-This does not change V1/V2/V3. It adds an explicit Done-quality scope boundary: workspace roots remain local checkout contexts, while repo identity should aggregate related worktrees.
+Workspace roots remain local checkout contexts, while repo identity aggregates related worktrees.
 
 ## Phase plan
 

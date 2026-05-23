@@ -223,7 +223,6 @@ Known limitations:
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture
 - [`PROGRESS.md`](PROGRESS.md) — detailed implementation history and current gaps
 - [`ROADMAP.md`](ROADMAP.md) — development roadmap and historical phase plan
-- [`REFRAMING.md`](REFRAMING.md) — long-term product philosophy
 
 ## Development
 
