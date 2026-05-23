@@ -78,9 +78,37 @@ _pane_session_start
 const shellHookMarkerStart = "# >>> pane shell integration >>>"
 const shellHookMarkerEnd = "# <<< pane shell integration <<<"
 
+type setupOptions struct {
+	InstallShell bool
+	InstallShim  bool
+	StartDaemon  bool
+	PrintShell   bool
+}
+
+func parseSetupOptions(args []string) (setupOptions, error) {
+	options := setupOptions{InstallShell: true, InstallShim: true, StartDaemon: true}
+	for _, arg := range args {
+		switch arg {
+		case "--no-shell":
+			options.InstallShell = false
+		case "--no-shim":
+			options.InstallShim = false
+		case "--no-daemon":
+			options.StartDaemon = false
+		case "--print-shell":
+			options.PrintShell = true
+			options.InstallShell = false
+		default:
+			return setupOptions{}, errors.New("usage: pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell]")
+		}
+	}
+	return options, nil
+}
+
 func runSetup(args []string, stdout io.Writer) error {
-	if len(args) != 0 {
-		return errors.New("usage: pane setup")
+	options, err := parseSetupOptions(args)
+	if err != nil {
+		return err
 	}
 	executable, err := os.Executable()
 	if err != nil {
@@ -109,21 +137,39 @@ func runSetup(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "warn analyzer not installed: %v\n", err)
 	}
 
-	shimPath, err := installGitShim(installedBin, home)
-	if err != nil {
-		return err
+	if options.InstallShim {
+		shimPath, err := installGitShim(installedBin, home)
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stdout, "installed git shim: %s\n", shimPath)
+	} else {
+		_, _ = fmt.Fprintf(stdout, "skipped git shim\n")
 	}
-	_, _ = fmt.Fprintf(stdout, "installed git shim: %s\n", shimPath)
 
-	rcPath, err := defaultShellRC(home)
-	if err != nil {
-		return err
+	if options.PrintShell {
+		rcPath, err := defaultShellRC(home)
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stdout, "shell hook for %s:\n%s", rcPath, shellHookBlock(installedBin))
+	} else if options.InstallShell {
+		rcPath, err := defaultShellRC(home)
+		if err != nil {
+			return err
+		}
+		if err := installShellHook(rcPath, installedBin); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stdout, "installed shell hook: %s\n", rcPath)
+	} else {
+		_, _ = fmt.Fprintf(stdout, "skipped shell hook\n")
 	}
-	if err := installShellHook(rcPath, installedBin); err != nil {
-		return err
-	}
-	_, _ = fmt.Fprintf(stdout, "installed shell hook: %s\n", rcPath)
 
+	if !options.StartDaemon {
+		_, _ = fmt.Fprintf(stdout, "skipped daemon start\n")
+		return nil
+	}
 	client := daemon.Client{SocketPath: store.DefaultSocketPath(home)}
 	if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
 		_, _ = fmt.Fprintf(stdout, "daemon already running\n")
@@ -219,8 +265,12 @@ func defaultShellRC(home string) (string, error) {
 	return filepath.Join(home, ".zshrc"), nil
 }
 
+func shellHookBlock(paneBin string) string {
+	return fmt.Sprintf("%s\nexport PATH=%s:\"$PATH\"\neval \"$(%s shell-init)\"\n%s\n", shellHookMarkerStart, strconv.Quote(filepath.Dir(paneBin)), strconv.Quote(paneBin), shellHookMarkerEnd)
+}
+
 func installShellHook(rcPath, paneBin string) error {
-	block := fmt.Sprintf("%s\nexport PATH=%s:\"$PATH\"\neval \"$(%s shell-init)\"\n%s\n", shellHookMarkerStart, strconv.Quote(filepath.Dir(paneBin)), strconv.Quote(paneBin), shellHookMarkerEnd)
+	block := shellHookBlock(paneBin)
 	content, err := os.ReadFile(rcPath)
 	if err != nil && !os.IsNotExist(err) {
 		return err

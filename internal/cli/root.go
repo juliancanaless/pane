@@ -50,7 +50,8 @@ Usage:
 
   pane daemon health                Check daemon health over the Unix socket
   pane daemon stop                  Ask the daemon to stop cleanly
-  pane setup                        Install local binary, shell hook, git shim, and start daemon
+  pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell]
+                                    Install local binary, integrations, and start daemon
   pane doctor                       Diagnose local Pane installation and daemon health
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks

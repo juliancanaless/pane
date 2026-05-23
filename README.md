@@ -169,6 +169,7 @@ make build
 make restart # stop the current dev daemon, rebuild, and start it in the background
 ./bin/pane help
 ./bin/pane setup
+./bin/pane setup --no-shell --no-daemon # install without editing shell rc or starting daemon
 ./bin/pane doctor
 ./bin/pane daemon start
 ./bin/pane daemon status

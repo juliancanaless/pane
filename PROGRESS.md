@@ -867,7 +867,7 @@ Still needed:
 
 - Homebrew formula or other package manager distribution
 - safer shell rc targeting/options for non-zsh/bash or custom dotfile layouts
-- `pane setup --no-shell` / `--print-only` modes if dogfooding finds automatic rc edits too aggressive
+- package manager install flow should likely default to safer setup options after more dogfooding
 - stronger doctor checks for PATH ordering
 
 ### Phase 29 — Activity-based work tracking
@@ -891,6 +891,28 @@ Still needed:
 - richer output formats such as JSON/Markdown
 - better duration semantics for resumed/reused pane sessions
 - coalesced daily/weekly summaries instead of raw session lines
+
+### Phase 31 — Setup safety hardening
+
+Status: first pass implemented.
+
+Goal:
+
+Make `pane setup` safer to run in real dotfile environments by allowing users and package managers to opt out of automatic shell, shim, or daemon changes.
+
+Completed:
+
+1. Added `pane setup --no-shell` to skip shell rc modification.
+2. Added `pane setup --no-shim` to skip transparent git shim installation.
+3. Added `pane setup --no-daemon` to install files without starting the daemon.
+4. Added `pane setup --print-shell` to print the managed shell hook block instead of writing it.
+5. Refactored shell-hook generation into a reusable helper and added setup option parsing tests.
+
+Still needed:
+
+- dogfood with real shell rc layouts before choosing setup defaults for packaged installs
+- `pane setup --rc <path>` for custom dotfile targets
+- clearer interactive confirmation mode for humans running setup manually
 
 ### Phase 30 — Platform hardening
 

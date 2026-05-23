@@ -104,7 +104,7 @@ Responsibilities:
 3. send a protocol request to the daemon
 4. render the daemon response
 
-The CLI should not own coordination state. Session, board, summary, and messaging commands go through the daemon. Setup/doctor are local installation helpers: `pane setup` copies the current binary and `pane-analyze` helper to `~/.pane/bin`, installs shell/git integration, and starts the daemon; `pane doctor` checks expected paths, analyzer availability, daemon health, and platform identity. CI runs macOS/Linux tests, builds, and daemon smoke coverage.
+The CLI should not own coordination state. Session, board, summary, and messaging commands go through the daemon. Setup/doctor are local installation helpers: `pane setup` copies the current binary and `pane-analyze` helper to `~/.pane/bin`, installs shell/git integration, and starts the daemon; setup flags such as `--no-shell`, `--no-shim`, `--no-daemon`, and `--print-shell` support safer package-manager or dotfile-managed installs. `pane doctor` checks expected paths, analyzer availability, daemon health, and platform identity. CI runs macOS/Linux tests, builds, and daemon smoke coverage.
 
 ### Protocol layer: `internal/protocol`
 

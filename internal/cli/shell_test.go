@@ -8,6 +8,24 @@ import (
 	"testing"
 )
 
+func TestParseSetupOptions(t *testing.T) {
+	options, err := parseSetupOptions([]string{"--no-shell", "--no-shim", "--no-daemon"})
+	if err != nil {
+		t.Fatalf("parseSetupOptions returned error: %v", err)
+	}
+	if options.InstallShell || options.InstallShim || options.StartDaemon || options.PrintShell {
+		t.Fatalf("options = %#v", options)
+	}
+
+	options, err = parseSetupOptions([]string{"--print-shell"})
+	if err != nil {
+		t.Fatalf("parseSetupOptions returned error: %v", err)
+	}
+	if !options.PrintShell || options.InstallShell {
+		t.Fatalf("print-shell options = %#v", options)
+	}
+}
+
 func TestFindAnalyzerSourceUsesCurrentBuildOutput(t *testing.T) {
 	dir := t.TempDir()
 	oldwd, err := os.Getwd()
