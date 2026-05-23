@@ -99,6 +99,15 @@ func runSetup(args []string, stdout io.Writer) error {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "installed binary: %s\n", installedBin)
+	if analyzerSource, err := findAnalyzerSource(executable); err == nil {
+		installedAnalyzer := filepath.Join(installDir, "pane-analyze")
+		if err := copyFile(analyzerSource, installedAnalyzer, 0o755); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stdout, "installed analyzer: %s\n", installedAnalyzer)
+	} else {
+		_, _ = fmt.Fprintf(stdout, "warn analyzer not installed: %v\n", err)
+	}
 
 	shimPath, err := installGitShim(installedBin, home)
 	if err != nil {
@@ -138,6 +147,8 @@ func runDoctor(args []string, stdout io.Writer) error {
 	_, _ = fmt.Fprintf(stdout, "platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	installedBin := filepath.Join(home, ".pane", "bin", "pane")
 	checkPath(stdout, "binary", installedBin)
+	checkPath(stdout, "analyzer", filepath.Join(home, ".pane", "bin", "pane-analyze"))
+	checkRuntimeAnalyzer(stdout)
 	checkPath(stdout, "database", store.DefaultDBPath(home))
 	checkPath(stdout, "socket", store.DefaultSocketPath(home))
 	checkPath(stdout, "pid file", store.DefaultPIDPath(home))
@@ -153,6 +164,34 @@ func runDoctor(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "warn daemon unreachable: %v\n", err)
 	}
 	return nil
+}
+
+func checkRuntimeAnalyzer(stdout io.Writer) {
+	path, err := findAnalyzerSource("")
+	if err != nil {
+		_, _ = fmt.Fprintf(stdout, "warn analyzer runtime unavailable: %v\n", err)
+		return
+	}
+	_, _ = fmt.Fprintf(stdout, "ok analyzer runtime: %s\n", path)
+}
+
+func findAnalyzerSource(executable string) (string, error) {
+	candidates := []string{}
+	if value := os.Getenv("PANE_ANALYZER_PATH"); value != "" {
+		candidates = append(candidates, value)
+	}
+	if executable != "" {
+		candidates = append(candidates, filepath.Join(filepath.Dir(executable), "pane-analyze"))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, filepath.Join(cwd, "bin", "pane-analyze"))
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", errors.New("pane-analyze not found; run `make build` or set PANE_ANALYZER_PATH")
 }
 
 func checkPath(stdout io.Writer, label, path string) {

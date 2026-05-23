@@ -8,6 +8,41 @@ import (
 	"testing"
 )
 
+func TestFindAnalyzerSourceUsesCurrentBuildOutput(t *testing.T) {
+	dir := t.TempDir()
+	oldwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd returned error: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldwd) }()
+	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
+		t.Fatalf("MkdirAll returned error: %v", err)
+	}
+	analyzer := filepath.Join(dir, "bin", "pane-analyze")
+	if err := os.WriteFile(analyzer, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir returned error: %v", err)
+	}
+
+	got, err := findAnalyzerSource("")
+	if err != nil {
+		t.Fatalf("findAnalyzerSource returned error: %v", err)
+	}
+	gotReal, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("EvalSymlinks returned error: %v", err)
+	}
+	wantReal, err := filepath.EvalSymlinks(analyzer)
+	if err != nil {
+		t.Fatalf("EvalSymlinks returned error: %v", err)
+	}
+	if gotReal != wantReal {
+		t.Fatalf("analyzer source = %q, want %q", gotReal, wantReal)
+	}
+}
+
 func TestInstallShellHookIsIdempotent(t *testing.T) {
 	rcPath := filepath.Join(t.TempDir(), ".zshrc")
 	paneBin := filepath.Join(t.TempDir(), "bin", "pane")

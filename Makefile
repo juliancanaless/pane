@@ -21,6 +21,7 @@ analysis-test:
 install: build
 	mkdir -p $(INSTALL_DIR)
 	cp $(BIN) $(INSTALL_DIR)/pane
+	cp $(ANALYZER_BIN) $(INSTALL_DIR)/pane-analyze
 
 restart:
 	-$(BIN) daemon stop

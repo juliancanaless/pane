@@ -76,5 +76,11 @@ func defaultAnalyzerPath() string {
 	if value := os.Getenv("PANE_ANALYZER_PATH"); value != "" {
 		return value
 	}
+	if executable, err := os.Executable(); err == nil {
+		installed := filepath.Join(filepath.Dir(executable), "pane-analyze")
+		if _, err := os.Stat(installed); err == nil {
+			return installed
+		}
+	}
 	return filepath.Join("bin", "pane-analyze")
 }

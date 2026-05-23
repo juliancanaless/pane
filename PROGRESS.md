@@ -855,12 +855,12 @@ Make local installation and diagnostics one-command enough that users do not man
 
 Completed:
 
-1. Added `pane setup` to copy the current binary to `~/.pane/bin/pane`.
+1. Added `pane setup` to copy the current binary to `~/.pane/bin/pane` and the analyzer helper to `~/.pane/bin/pane-analyze`.
 2. `pane setup` installs the transparent git shim under `~/.pane/shims/git`.
 3. `pane setup` appends an idempotent managed shell-hook block to the default zsh/bash rc file.
 4. `pane setup` starts the daemon in the background after installation.
-5. Added `pane doctor` to report binary, DB, socket, PID, log, shim, shell hook, and daemon health.
-6. Added setup helper tests for idempotent shell-hook installation and git shim generation.
+5. Added `pane doctor` to report binary, analyzer, DB, socket, PID, log, shim, shell hook, platform, and daemon health.
+6. Added setup helper tests for analyzer discovery, idempotent shell-hook installation, and git shim generation.
 7. Dogfooded with a temporary HOME: setup installed binary/shim/shell hook, started daemon, and doctor reported all checks healthy.
 
 Still needed:
@@ -868,7 +868,7 @@ Still needed:
 - Homebrew formula or other package manager distribution
 - safer shell rc targeting/options for non-zsh/bash or custom dotfile layouts
 - `pane setup --no-shell` / `--print-only` modes if dogfooding finds automatic rc edits too aggressive
-- stronger doctor checks for PATH ordering and analyzer binary availability
+- stronger doctor checks for PATH ordering
 
 ### Phase 29 — Activity-based work tracking
 
