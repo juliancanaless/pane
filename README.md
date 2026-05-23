@@ -1,6 +1,8 @@
 # Pane
 
-Pane is shared local memory for concurrent coding agents.
+**Shared local memory for AI coding agents.**
+
+Pane gives Claude Code, Codex, Cursor-style terminal agents, and other AI coding agents a local coordination layer: sessions, intents, messages, file activity, worktree awareness, agent memory, work logs, and git guardrails.
 
 When you run several agents at once, the hidden tax is coordination. One pane is refactoring auth, another is writing tests, a third is about to rebase, and you are the one remembering who touched what, which assumptions changed, and which git command might stomp on someone else's work.
 
@@ -22,7 +24,19 @@ Multi-agent coding currently feels powerful but fragile:
 - risky operations happen without shared-state awareness
 - coordination history disappears into terminal scrollback
 
-Pane's long-term vision is to become the local shared-memory layer for that workflow: a fast, private, provider-agnostic surface where coding agents coordinate through the filesystem, terminal pane identity, command interception, file activity, and explicit messages.
+Pane's long-term vision is to become the local shared-memory layer for that workflow: a fast, private, provider-agnostic surface where AI coding agents coordinate through the filesystem, terminal pane identity, command interception, file activity, and explicit messages.
+
+## Who is this for?
+
+Pane is for developers running multiple AI coding agents at once:
+
+- Claude Code in one terminal pane
+- Codex or another CLI coding agent in another pane
+- Cursor or editor-integrated agents changing nearby files
+- separate Git worktrees for isolated parallel tasks
+- humans who do not want to manually relay context between agents
+
+Pane is not an orchestrator, scheduler, or remote agent platform. It is local-first shared memory and coordination for terminal-based coding agents.
 
 ## Core use cases
 
@@ -129,6 +143,8 @@ Agents should update `pane intent` whenever they switch tasks. The board is only
 - [`USE_CASES.md`](USE_CASES.md) — concrete problems and workflows Pane is meant to solve
 - [`V1_READY.md`](V1_READY.md) — definition of V1 (achieved)
 - [`REFRAMING.md`](REFRAMING.md) — long-term reframe from coordination tool to environment-as-product
+- [`docs/for-agents.md`](docs/for-agents.md) — command guide for AI coding agents using Pane
+- [`docs/demo.md`](docs/demo.md) — text demo transcript for humans and agents
 - [`docs/architecture.md`](docs/architecture.md) — detailed V1 technical architecture
 - [`docs/80-20-overview.md`](docs/80-20-overview.md) — V1 product scope
 
@@ -157,7 +173,7 @@ The repository contains:
 - first-pass semantic overlap warnings in board, summary, and git preflight
 - first-pass temporal decay for file activity so long-running sessions summarize older work
 
-The current focus is V3: semantic intelligence through a Rust/tree-sitter analysis engine. See [`ROADMAP.md`](ROADMAP.md) for the full guided plan.
+The current focus is release hardening and real-world dogfood. Feature scaffolding through the Done roadmap is first-pass implemented; see [`ROADMAP.md`](ROADMAP.md) and [`PROGRESS.md`](PROGRESS.md) for details.
 
 ## Project shape
 
