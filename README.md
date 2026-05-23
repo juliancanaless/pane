@@ -235,6 +235,14 @@ Known limitations:
 - [`PROGRESS.md`](PROGRESS.md) — detailed implementation history and current gaps
 - [`ROADMAP.md`](ROADMAP.md) — development roadmap and historical phase plan
 
+## Why Go and Rust?
+
+Pane is a small local distributed system underneath AI agents: short-lived CLI clients, a long-running daemon, SQLite-backed shared memory, file watchers, git guardrails, and an analyzer helper all coordinating through local OS boundaries.
+
+Go is a good fit for the Pane daemon and CLI because it is simple to ship as a single binary, has strong standard-library support for processes/sockets/filesystems, and is well suited to concurrent systems. Part of the inspiration came from using Go in a distributed-systems course assignment: <https://www.cs.utexas.edu/~rossbach/cs378-f23/lab/go-cs378.html>. That framing maps well to Pane: agents are independent actors, and Pane is the coordination layer below them.
+
+Rust is used for `pane-analyze` because parsing and semantic analysis benefit from Rust's performance, memory safety, and tree-sitter ecosystem. A prior course project involving Rust and two-phase locking also influenced the split: keep coordination/runtime infrastructure in Go, and put the lower-level analysis engine in Rust where correctness and efficient parsing matter most.
+
 ## Development
 
 ```bash
