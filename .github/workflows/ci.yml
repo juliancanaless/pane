@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Go tests
+        run: go test ./...
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Analyzer tests
+        run: make test
+
+      - name: Build
+        run: make build
+
+      - name: Daemon smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmpdir="$(mktemp -d)"
+          export PANE_DB_PATH="$tmpdir/pane.db"
+          export PANE_SOCKET_PATH="$tmpdir/pane.sock"
+          export PANE_PID_PATH="$tmpdir/pane.pid"
+          export PANE_LOG_PATH="$tmpdir/pane.log"
+          ./bin/pane daemon start --background
+          ./bin/pane daemon health
+          ./bin/pane init
+          ./bin/pane intent "ci smoke on ${{ matrix.os }}"
+          ./bin/pane summary >/dev/null
+          ./bin/pane history --format work-log >/dev/null
+          ./bin/pane daemon stop

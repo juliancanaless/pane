@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -134,6 +135,7 @@ func runDoctor(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
+	_, _ = fmt.Fprintf(stdout, "platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 	installedBin := filepath.Join(home, ".pane", "bin", "pane")
 	checkPath(stdout, "binary", installedBin)
 	checkPath(stdout, "database", store.DefaultDBPath(home))

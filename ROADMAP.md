@@ -327,12 +327,16 @@ Today Pane is strongest within one workspace root. Done-quality Pane should unde
 
 ### D.6 — Platform hardening
 
+**Status:** first pass implemented.
+
 **Why:** V1 is macOS-focused. The architecture supports Linux but it's untested.
 
 **What:**
 - Linux CI and testing
 - inotify-based file watcher validation
 - Platform-specific daemon lifecycle behavior
+
+**Exit criteria:** CI validates Go/Rust tests, builds, and a daemon smoke test on macOS and Linux, and local diagnostics show platform identity — first pass done with GitHub Actions matrix CI plus `pane doctor` platform reporting.
 
 ### Done checklist
 

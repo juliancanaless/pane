@@ -10,7 +10,7 @@ Pane has a working daemon-backed core with sessions, board, summary, messaging, 
 
 **V2 is complete.** Real dogfood found an overlap attribution gap, the fix has been implemented, and the original real-pane dogfood now passes. See the V2 dogfood notes below.
 
-**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, D.3, D.4, and D.5 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context, first-pass setup/doctor commands for local installation diagnostics, and first-pass work-log history reports.
+**V3.1, V3.2, V3.3, V3.4, D.0, D.1, D.2, D.3, D.4, D.5, and D.6 are first-pass implemented.** Pane has a Rust/tree-sitter analyzer for symbols and import/use/require dependency edges, SQLite persistence for semantic data, CLI commands to index/query dependents, semantic-overlap warnings in board/summary/git preflight, first-pass activity decay, first-pass worktree-aware repo identity for same-repository board/history/preflight awareness, first-pass worker/child session hierarchies via `pane spawn` plus parent-session environment inheritance, first-pass lineage visualization in `pane history --lineage`, first-pass agent state conventions with global scope, namespace listing, owner-aware output, and `summary.*` startup context, first-pass setup/doctor commands for local installation diagnostics, first-pass work-log history reports, and first-pass macOS/Linux CI platform coverage.
 
 See `ROADMAP.md` for the V3/Done plan.
 
@@ -891,6 +891,28 @@ Still needed:
 - richer output formats such as JSON/Markdown
 - better duration semantics for resumed/reused pane sessions
 - coalesced daily/weekly summaries instead of raw session lines
+
+### Phase 30 — Platform hardening
+
+Status: first pass implemented (D.6).
+
+Goal:
+
+Start validating Pane as cross-platform infrastructure instead of a macOS-only dogfood tool.
+
+Completed:
+
+1. Added GitHub Actions CI with a macOS/Linux matrix.
+2. CI runs `go test ./...`, `go vet ./...`, `make test`, and `make build`.
+3. CI performs a temp-path daemon smoke test that starts the daemon in the background, checks health, initializes a session, records intent, renders summary, renders work-log history, and stops the daemon.
+4. `pane doctor` now prints `GOOS/GOARCH` platform identity for diagnostics.
+
+Still needed:
+
+- observe the first GitHub Actions runs and fix any platform-specific notify/daemon lifecycle failures
+- explicit inotify/FSEvents watcher integration tests beyond daemon smoke coverage
+- platform-specific setup behavior for Linux shell/distro variations
+- release artifact packaging per platform
 
 ## Testing plan
 
