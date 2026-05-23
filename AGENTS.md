@@ -8,14 +8,17 @@ If you are an agent operating in this repo, use Pane as part of your normal loop
 
 ## Operating contract
 
-Your job is to keep Pane state useful while you work:
+Your job is to keep Pane state useful while you work. The human can inspect Pane, but should not have to maintain it for you.
 
 1. initialize/resume your session
 2. read summary/board before acting
 3. set intent before meaningful changes
-4. check/respond to messages
-5. use Pane git guardrails for git commands
-6. leave durable handoff/state when useful
+4. update intent when you switch tasks
+5. check/respond to messages
+6. ask/reply through Pane instead of asking the human to relay routine coordination
+7. use Pane git guardrails for git commands
+8. leave durable handoff/state when useful
+9. close your session when done
 
 ## Startup
 
@@ -140,5 +143,6 @@ If the board appears to show stale sessions, run:
 - Use `pane state` for small namespaced JSON facts that should persist locally.
 - Use `pane ask` / `pane reply` for coordination.
 - Do not assume the human knows what other panes are doing.
+- Do not rely on the human to update Pane state, summarize your work, or relay routine cross-agent messages.
 - Sessions persist across daemon restarts. `pane board` hides stale/closed sessions by default, while `pane history` keeps durable past context.
 - Use `pane close` before ending a pane's work when possible.

@@ -4,27 +4,22 @@
 
 Pane gives Claude Code, Codex, Cursor-style terminal agents, and other AI coding agents a local coordination layer: sessions, intents, messages, file activity, worktree awareness, agent memory, work logs, and git guardrails.
 
-When you run several agents at once, the hidden tax is coordination. One pane is refactoring auth, another is writing tests, a third is about to rebase, and you are the one remembering who touched what, which assumptions changed, and which git command might stomp on someone else's work.
+The core idea is simple: **agents should keep the coordination surface up to date themselves so the human does not have to be the message bus.**
 
-Pane moves that coordination layer out of your head and into the workspace.
+When several agents run at once, the hidden tax is coordination. One pane is refactoring auth, another is writing tests, a third is about to rebase, and the human is usually the one remembering who touched what, which assumptions changed, and which git command might stomp on someone else's work. Pane moves that shared memory into the local workspace.
 
-It gives agent sessions a shared awareness board: who is active, what they are trying to do, what files they have touched recently, what questions are unresolved, and which operations may affect other sessions. Agents read from and write to that board themselves, so the human is no longer the message bus between panes.
+Pane is not an orchestrator. It does not assign tasks, schedule agents, or control providers. It sits below them at the shell/workspace layer. If an agent can run shell commands, it can participate.
 
-Pane is not an orchestrator. It does not assign tasks or boss agents around. It sits below them, at the local shell/workspace layer, and gives them enough shared context to collaborate without requiring a provider-specific integration.
+## Install
 
-If an agent can run shell commands, it can participate in Pane.
+Pane v0.1.1 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
 
-## Why this matters
-
-Multi-agent coding currently feels powerful but fragile:
-
-- agents lose context when restarted
-- agents do not know what other panes are doing
-- humans manually relay findings between sessions
-- risky operations happen without shared-state awareness
-- coordination history disappears into terminal scrollback
-
-Pane's long-term vision is to become the local shared-memory layer for that workflow: a fast, private, provider-agnostic surface where AI coding agents coordinate through the filesystem, terminal pane identity, command interception, file activity, and explicit messages.
+```bash
+brew tap juliancanaless/pane
+brew install pane
+pane setup
+pane doctor
+```
 
 ## Who is this for?
 
@@ -36,159 +31,199 @@ Pane is for developers running multiple AI coding agents at once:
 - separate Git worktrees for isolated parallel tasks
 - humans who do not want to manually relay context between agents
 
-Pane is not an orchestrator, scheduler, or remote agent platform. It is local-first shared memory and coordination for terminal-based coding agents.
+Pane is local-first shared memory and coordination for terminal-based coding agents.
+
+## The agent contract
+
+Pane only works well if agents use it as part of their normal loop. The human should not have to keep Pane updated manually.
+
+A Pane-aware agent is expected to:
+
+1. initialize or resume its session with `pane init`
+2. read `pane summary`, `pane board`, and `pane inbox` before acting
+3. set `pane intent "..."` before meaningful changes
+4. update intent whenever the task changes
+5. use `pane ask` / `pane reply` to coordinate with other sessions instead of routing through the human
+6. use `pane git ...` for high-risk git commands
+7. store compact handoff or memory facts with `pane state`
+8. close its session with `pane close` when finished
+
+The board is useful only when participating agents write their own state. Pane is designed so agents can maintain this state themselves.
+
+See [`AGENTS.md`](AGENTS.md) and [`docs/for-agents.md`](docs/for-agents.md) for the explicit operating contract agents should follow.
 
 ## Core use cases
-
-Pane is meant to solve these workflows first:
 
 - **Agent restart continuity** — a new agent can inherit useful context instead of starting cold.
 - **Cross-pane handoff** — work can move from one terminal pane or agent to another with explicit lineage.
 - **Concurrent agent awareness** — agents can see nearby work, current intents, recent files, and open questions.
-- **Human handoff relief** — the human should not have to manually summarize and relay every bit of shared context.
+- **Human handoff relief** — the human should not have to summarize and relay every bit of shared context.
 - **Workspace memory over terminal scrollback** — important context becomes queryable local memory instead of disappearing into logs.
 - **Safer high-risk operations** — shared awareness can warn before git operations that may disrupt another session.
 - **Specialized agent memory** — agents can store compact namespaced JSON facts without inventing per-tool caches.
 - **Provider-agnostic collaboration** — any agent that can run shell commands can participate.
 
-See [`USE_CASES.md`](USE_CASES.md) for the fuller use-case narrative.
+## What Pane provides
 
-## Install
-
-Pane v0.1.1 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
-
-Quick Homebrew install:
+### Shared awareness board
 
 ```bash
-brew tap juliancanaless/pane
-brew install pane
-pane setup
-pane doctor
+pane board
+pane board --repo
 ```
 
-## What Pane gives agents
+Shows active sessions, current intents, cwd/branch, recent files, overlaps, coordination indicators, and recent git events. `--repo` aggregates sibling Git worktrees that belong to the same repository.
 
-Pane gives each session a durable identity tied to the terminal pane, not the agent process. If one agent exits and another starts in the same pane, the new agent can inherit the pane's context: current intent, recent activity, messages, and nearby work from other sessions.
+### Startup / resume context
 
-The core surface is the shared awareness board. A Pane-aware agent can ask:
+```bash
+pane summary
+```
 
-- who else is active in this workspace?
-- what is each session currently trying to do?
-- which files or directories were touched recently?
-- where might my work overlap with another session?
-- are there unread questions or unresolved coordination threads?
-- is this operation risky given what other sessions are doing?
+Shows the current session, peer sessions, unread messages, recent activity, continuity context, overlaps, semantic warnings, and selected `summary.*` state.
 
-The human can inspect the board, but should not have to maintain it. Agents are expected to update their own state as they work.
+### Agent-maintained intent
 
-Git worktrees are part of the intended serious workflow. Each worktree keeps its isolated cwd, file watcher, and local working set, while Pane can aggregate related sessions by shared repository identity. First-pass support includes `pane board --repo`, `pane history --repo`, and same-repository branch-risk git preflight warnings; semantic graph normalization across worktrees remains future work.
+```bash
+pane intent "working on auth middleware"
+```
 
-Lifecycle behavior: Pane persists sessions in SQLite across daemon restarts. Restarting the daemon does not delete old sessions. `pane board` hides closed sessions and first-pass stale sessions by default; use `pane close` to close the current session and `pane sessions prune` to close stale active/idle sessions in the workspace.
+Agents should update this when they switch tasks. This is the cheapest way to keep other agents and the human oriented.
 
-## Current status
+### Messaging
 
-**V1 is complete.** Pane is a working local coordination layer with daemon-backed sessions, board, summary, messaging, file activity, git guardrails, shell integration, continuity, agent state, and session lifecycle cleanup. Dogfooded and verified 2026-05-21.
+```bash
+pane ask <session-id-or-name> "are you still touching auth/session.ts?"
+pane inbox
+pane reply <message-id> "done with that file"
+```
 
-V2 is complete. V3 semantic intelligence has first-pass symbol/dependency analysis, semantic overlap warnings, and activity decay. Worktree-aware repository identity, worker/child session hierarchies, richer session lineage, agent state conventions, local setup/diagnostics, activity-based work tracking, and platform hardening have first-pass implementations for repo-wide board/history/preflight awareness, `pane spawn` child tracking, `pane history --lineage`, global state, namespace ownership, `summary.*` startup context, `pane setup`, `pane doctor`, `pane history --format work-log`, and macOS/Linux CI. See [`ROADMAP.md`](ROADMAP.md).
+Agents can coordinate directly without the human copying messages between panes.
 
-## V1 focus
+### Git guardrails
 
-V1 is the 80/20 foundation. It does not try to understand every symbol or perfectly model the codebase. It provides the pieces that remove the most human glue work:
+```bash
+pane git status
+pane git rebase main
+pane git push --force-with-lease
+```
 
-- pane-based session identity
-- shared awareness board
-- current intent/status updates from agents
-- file-level working set awareness
-- session-start summaries
-- explicit inter-session messaging
-- git preflight checks as an early guardrail
+Pane records git activity and can warn when a command may disrupt another active session.
 
-Git is a feature, not the product. Pane's product is shared workspace awareness. Git interception is simply one high-leverage place to apply that awareness before damage happens.
+### Worktree-aware scope
 
-## Agent operating pattern
+```bash
+pane board --repo
+pane history --repo --lineage
+```
 
-A Pane-aware agent should use Pane commands during its normal loop:
+Each worktree keeps isolated cwd/file activity, while repo scope aggregates related sessions by Git common-dir identity.
+
+### Worker/child lineage
+
+```bash
+pane spawn <command> [args...]
+pane history --lineage
+```
+
+Child commands register as child sessions and appear in board/history lineage.
+
+### Agent memory
+
+```bash
+pane state set agent.notes '{"handoff":"tests need review"}'
+pane state set summary.note '{"text":"auth token shape changed"}'
+pane state namespaces
+pane state list agent.
+pane state set --global neon.memory '{"prefers":"workspace summaries"}'
+```
+
+Use dotted namespaces for compact local memory. `summary.*` keys appear in startup summaries.
+
+### Work logs
+
+```bash
+pane history --since 1w --format work-log
+```
+
+Produces a compact report with sessions, durations, file counts, git operation counts, and intents.
+
+## Common agent loop
 
 ```bash
 pane init
 pane heartbeat
-pane board
-pane close
 pane summary
-pane history --since 24h
-pane history --lineage
-pane history --since 1w --format work-log
-pane continue <session-id>
-pane spawn <command> [args...]
-pane intent "working on auth middleware"
+pane board
 pane inbox
-pane ask <session-id-or-short-id> "are you still touching auth/session.ts?"
-pane reply <message-id> "done with that file"
-pane state set agent.notes '{"handoff":"tests need review"}'
-pane state set summary.note '{"text":"tests need review"}'
-pane state list agent.
-pane state namespaces
-pane state set --global neon.memory '{"prefers":"workspace summaries"}'
-pane state get agent.notes
+pane intent "what I am doing now"
+```
+
+Before risky work:
+
+```bash
+pane board --repo
 pane git status
 ```
 
-Agents should update `pane intent` whenever they switch tasks. The board is only useful if each participating session writes its own current state.
+Before ending or handing off:
+
+```bash
+pane state set agent.handoff '{"summary":"what changed","next":"what to do next"}'
+pane history --since 24h --lineage
+pane close
+```
+
+## Storage and retention
+
+Pane stores local state in SQLite under `~/.pane` by default. It is intentionally local-first and private.
+
+Current behavior:
+
+- sessions, messages, file activity, git events, agent state, and analysis data are persisted locally
+- closed/stale sessions are hidden from the default board but remain queryable in history
+- activity views use decay windows so old file activity is summarized or ignored in output
+- there is not yet an aggressive automatic pruning/compaction policy for the SQLite database
+
+In normal use the database should stay small, but long-running/high-volume installations may eventually need explicit retention controls such as `pane vacuum`, configurable history windows, or automatic pruning. That is a future hardening area rather than a v0.1.1 feature.
+
+## Current status
+
+Pane is in an early shareable release. The main feature scaffolding is implemented and CI passes on macOS and Linux.
+
+Implemented today:
+
+- daemon-backed sessions, board, summary, messaging, history, and state
+- file activity, overlap warnings, and git preflight guardrails
+- Rust/tree-sitter analyzer helper for symbols and dependency edges
+- first-pass semantic overlap warnings based on dependency data
+- temporal activity decay
+- Git worktree-aware repo scope
+- worker/child sessions with `pane spawn`
+- lineage view with `pane history --lineage`
+- namespaced and global agent state
+- work-log history output
+- `pane setup`, `pane doctor`, Homebrew tap, and macOS Intel/Apple Silicon release assets
+- macOS/Linux CI with daemon smoke tests
+
+Known limitations:
+
+- semantic overlap is first-pass import/package-level, not full symbol-reference/signature-aware analysis
+- Linux binary release assets are not published yet, though source CI passes on Linux
+- storage retention is basic; old data is hidden/summarized in views but not aggressively pruned
+- Pane needs more multi-day dogfood with real teams and real concurrent agent workflows
 
 ## Project docs
 
-- [`ROADMAP.md`](ROADMAP.md) — **start here for what's next**: V2, V3, and Done plan
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture and design rules
-- [`PROGRESS.md`](PROGRESS.md) — committed phase plan, current status, and V1 dogfood results
-- [`USE_CASES.md`](USE_CASES.md) — concrete problems and workflows Pane is meant to solve
-- [`V1_READY.md`](V1_READY.md) — definition of V1 (achieved)
-- [`REFRAMING.md`](REFRAMING.md) — long-term reframe from coordination tool to environment-as-product
+- [`INSTALL.md`](INSTALL.md) — installation and setup
+- [`AGENTS.md`](AGENTS.md) — operating contract for agents in this repo
 - [`docs/for-agents.md`](docs/for-agents.md) — command guide for AI coding agents using Pane
 - [`docs/demo.md`](docs/demo.md) — text demo transcript for humans and agents
-- [`docs/architecture.md`](docs/architecture.md) — detailed V1 technical architecture
-- [`docs/80-20-overview.md`](docs/80-20-overview.md) — V1 product scope
-
-## Current repo status
-
-**V1 is done.** All phases through session lifecycle cleanup are implemented and dogfooded. The V2/V3/Done roadmap is defined in [`ROADMAP.md`](ROADMAP.md).
-
-The repository contains:
-
-- CLI entry point
-- SQLite persistence foundation
-- pane/TTY session identity
-- daemon-backed `pane init`, `pane heartbeat`, `pane status`, and `pane intent`
-- daemon-backed `pane board` with active session visibility, short session IDs, and coordination indicators
-- daemon-backed `pane summary` with session-specific startup context, unread messages, recent files, and continuity history
-- daemon-backed `pane ask`, `pane inbox`, and `pane reply` messaging
-- first-pass daemon-observed file activity
-- first-pass sequential continuity with `pane continue` and `pane history`
-- first-pass generic agent state with `pane state set|get|list|namespaces|delete`, namespace ownership, global scope, and `summary.*` startup context
-- first-pass `pane git` passthrough, preflight, and event recording
-- Unix socket daemon foundation with first-pass PID/status lifecycle metadata
-- protocol codec and request types
-- initial tests
-- Rust/tree-sitter analyzer for symbols and first-pass dependency edges
-- persisted `analysis_symbols` and `dependency_edges` tables with `pane analyze index` / `pane analyze dependents`
-- first-pass semantic overlap warnings in board, summary, and git preflight
-- first-pass temporal decay for file activity so long-running sessions summarize older work
-
-The current focus is release hardening and real-world dogfood. Feature scaffolding through the Done roadmap is first-pass implemented; see [`ROADMAP.md`](ROADMAP.md) and [`PROGRESS.md`](PROGRESS.md) for details.
-
-## Project shape
-
-- `cmd/pane` — single CLI binary
-- `internal/session` — pane/session identity and lifecycle
-- `internal/board` — shared awareness board model and rendering
-- `internal/activity` — file activity tracking and overlap detection
-- `internal/messages` — ask/inbox/reply flow
-- `internal/gitguard` — git preflight logic
-- `internal/store` — SQLite persistence
-- `internal/daemon` — local daemon and socket server
-- `internal/protocol` — CLI/daemon protocol types
-- `internal/analysis` — Go client for the Rust analyzer subprocess
-- `analysis/` — Rust/tree-sitter analysis engine scaffold
-- `docs/` — product and technical notes
+- [`USE_CASES.md`](USE_CASES.md) — concrete problems and workflows Pane is meant to solve
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — agent-readable system architecture
+- [`PROGRESS.md`](PROGRESS.md) — detailed implementation history and current gaps
+- [`ROADMAP.md`](ROADMAP.md) — development roadmap and historical phase plan
+- [`REFRAMING.md`](REFRAMING.md) — long-term product philosophy
 
 ## Development
 
@@ -211,7 +246,7 @@ make restart # stop the current dev daemon, rebuild, and start it in the backgro
 Pane can print a shell hook that starts the daemon, registers the pane session, and runs `pane heartbeat` on each prompt:
 
 ```bash
-eval "$(/path/to/pane shell-init)"
+eval "$(pane shell-init)"
 ```
 
 For transparent git guardrails, install the git shim and prepend it to PATH:
@@ -220,5 +255,3 @@ For transparent git guardrails, install the git shim and prepend it to PATH:
 pane shims install
 export PATH="$HOME/.pane/shims:$PATH"
 ```
-
-Agents should read [`AGENTS.md`](AGENTS.md) for operating instructions.

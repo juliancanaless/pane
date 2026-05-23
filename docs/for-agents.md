@@ -4,6 +4,8 @@ If you are an AI coding agent operating in a terminal, use Pane as local shared 
 
 Pane is provider-agnostic. It works for Claude Code, Codex, Cursor-style terminal workflows, custom shell agents, and any coding agent that can run commands.
 
+Your responsibility is to keep Pane useful for the human and other agents. Do not wait for the human to summarize your work, relay messages, or update the board. Run Pane commands yourself as part of your normal loop.
+
 ## What Pane gives you
 
 - A durable session identity for the current terminal pane
@@ -16,6 +18,21 @@ Pane is provider-agnostic. It works for Claude Code, Codex, Cursor-style termina
 - Worker/child session tracking with `pane spawn`
 - Persistent namespaced agent memory with `pane state`
 - Work-log history for handoffs and weekly reports
+
+## Operating contract
+
+As an agent using Pane, you are expected to:
+
+1. initialize/resume your session with `pane init`
+2. read `pane summary`, `pane board`, and `pane inbox` before acting
+3. set `pane intent` before making meaningful changes
+4. update intent whenever you switch tasks
+5. coordinate with peers through `pane ask` / `pane reply`
+6. use `pane git` for risky git operations
+7. leave compact handoff/memory state with `pane state` when useful
+8. close your session with `pane close` when done
+
+The human can inspect Pane, but should not have to maintain it.
 
 ## Recommended startup loop
 
@@ -113,4 +130,6 @@ pane close
 - Pane is local-first. State lives in SQLite under `~/.pane` by default.
 - Pane is not an orchestrator. It does not assign tasks or control agents.
 - The board is only useful if agents keep their own intent current.
++- Do not assume the human knows what other panes are doing; inspect Pane yourself.
++- Do not ask the human to relay routine coordination; use Pane messaging.
 - Worktree-local context remains isolated, while `--repo` aggregates related Git worktrees.
