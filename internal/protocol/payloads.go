@@ -114,12 +114,20 @@ func StateRequestPayloadWithScope(value session.Environment, key, jsonValue, pre
 }
 
 func MessageSendRequestPayload(value session.Environment, toSession, body string) map[string]any {
-	return map[string]any{
+	return MessageSendRequestPayloadWithScope(value, toSession, body, "")
+}
+
+func MessageSendRequestPayloadWithScope(value session.Environment, toSession, body, scope string) map[string]any {
+	payload := map[string]any{
 		"pane_id":        value.PaneID,
 		"workspace_root": value.WorkspaceRoot,
 		"to_session":     toSession,
 		"body":           body,
 	}
+	if scope != "" {
+		payload["scope"] = scope
+	}
+	return payload
 }
 
 func MessageReplyRequestPayload(value session.Environment, messageID, body string) map[string]any {

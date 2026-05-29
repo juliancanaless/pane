@@ -405,7 +405,13 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	scope := payloadString(request, "scope")
 	var sessions []session.Session
 	var err error
-	if scope == "repo" && repoID != "" {
+	if scope == "machine" {
+		if payloadBool(request, "show_all") {
+			sessions, err = d.manager.ListRecentAll(context.Background(), 50)
+		} else {
+			sessions, err = d.manager.ListActiveAll(context.Background())
+		}
+	} else if scope == "repo" && repoID != "" {
 		if payloadBool(request, "show_all") {
 			sessions, err = d.manager.ListRecentByRepo(context.Background(), repoID, 50)
 		} else {
@@ -430,9 +436,14 @@ func (d *Daemon) handleGetBoard(request protocol.Request) protocol.Response {
 	b := board.FromSessionsWithStats(workspaceRoot, sessions, stats, activityStats)
 	b.Scope = scope
 	b.RepoID = repoID
-	b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
-	b.SemanticOverlaps = d.boardSemanticOverlaps(context.Background(), workspaceRoot, sessions)
-	b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot, sessions)
+	// Overlap, semantic, and git signals are keyed to a single workspace_root.
+	// A machine-wide board spans workspaces, so those signals would be misleading;
+	// the machine board is a roster only (who/where/intent/unread).
+	if scope != "machine" {
+		b.Overlaps = d.boardOverlaps(context.Background(), workspaceRoot)
+		b.SemanticOverlaps = d.boardSemanticOverlaps(context.Background(), workspaceRoot, sessions)
+		b.RecentGitEvents = d.boardGitEvents(context.Background(), workspaceRoot, sessions)
+	}
 	text := board.Render(b, time.Now())
 	return protocol.Success(map[string]any{"text": text})
 }
@@ -1026,7 +1037,12 @@ func (d *Daemon) handleMessageSend(request protocol.Request) protocol.Response {
 	if targetRef == "" {
 		return protocol.Failure("target session cannot be empty")
 	}
-	target, err := d.manager.Resolve(context.Background(), current.WorkspaceRoot, targetRef)
+	var target session.Session
+	if payloadString(request, "scope") == "global" {
+		target, err = d.manager.ResolveGlobal(context.Background(), current.WorkspaceRoot, targetRef)
+	} else {
+		target, err = d.manager.Resolve(context.Background(), current.WorkspaceRoot, targetRef)
+	}
 	if errors.Is(err, session.ErrNotFound) {
 		return protocol.Failure("target session not found")
 	}

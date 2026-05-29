@@ -37,7 +37,8 @@ Usage:
   pane status                       Show this session's workspace, branch, intent, and state
   pane intent <text>                Record what this session is currently working on
   pane name <name>                  Give this session a human-friendly name for targeting
-  pane board [--all] [--repo]       Show the workspace or same-repository awareness board
+  pane board [--all] [--repo] [--global]
+                                    Show the workspace, same-repository, or whole-machine awareness board
   pane summary                      Show startup context for this session
   pane continue <session-id>        Link this session to a previous session handoff
   pane spawn <command> [args...]    Run a command as a child Pane session
@@ -57,7 +58,8 @@ Usage:
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks
 
-  pane ask <target> <message>        Send an async coordination question to another session
+  pane ask [--global] <target> <message>
+                                    Send an async coordination question to another session (--global reaches any session on the machine by full ID)
                                      Target can be a session name, short ID, or full ID
   pane inbox                        Show unread coordination messages for this session
   pane reply <message-id> <message> Reply to a coordination thread
@@ -324,15 +326,21 @@ func runSessions(args []string, stdout io.Writer) error {
 func runBoard(args []string, stdout io.Writer) error {
 	showAll := false
 	repoScope := false
+	globalScope := false
 	for _, arg := range args {
 		switch arg {
 		case "--all", "-a":
 			showAll = true
 		case "--repo":
 			repoScope = true
+		case "--global":
+			globalScope = true
 		default:
-			return errors.New("usage: pane board [--all] [--repo]")
+			return errors.New("usage: pane board [--all] [--repo] [--global]")
 		}
+	}
+	if repoScope && globalScope {
+		return errors.New("pane board: --repo and --global are mutually exclusive")
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {
@@ -345,6 +353,9 @@ func runBoard(args []string, stdout io.Writer) error {
 	}
 	if repoScope {
 		payload["scope"] = "repo"
+	}
+	if globalScope {
+		payload["scope"] = "machine"
 	}
 	response, err := sendDaemonRequest(protocol.Request{Type: reqType, Payload: payload})
 	if err != nil {
@@ -1036,14 +1047,19 @@ func runStateDelete(args []string, stdout io.Writer) error {
 }
 
 func runAsk(args []string, stdout io.Writer) error {
+	scope := ""
+	if len(args) > 0 && args[0] == "--global" {
+		scope = "global"
+		args = args[1:]
+	}
 	if len(args) < 2 {
-		return errors.New("usage: pane ask <name-or-id> <message>")
+		return errors.New("usage: pane ask [--global] <name-or-id> <message>")
 	}
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestMessageSend, Payload: protocol.MessageSendRequestPayload(env, args[0], strings.Join(args[1:], " "))})
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestMessageSend, Payload: protocol.MessageSendRequestPayloadWithScope(env, args[0], strings.Join(args[1:], " "), scope)})
 	if err != nil {
 		return err
 	}

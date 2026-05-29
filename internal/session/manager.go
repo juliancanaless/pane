@@ -23,6 +23,8 @@ type Store interface {
 	ListRecentByWorkspace(context.Context, string, int) ([]Session, error)
 	ListActiveByRepo(context.Context, string) ([]Session, error)
 	ListRecentByRepo(context.Context, string, int) ([]Session, error)
+	ListActiveAll(context.Context) ([]Session, error)
+	ListRecentAll(context.Context, int) ([]Session, error)
 	UpdateIntent(context.Context, string, string, int64) error
 	UpdateStatus(context.Context, string, Status, int64) error
 	UpdateName(context.Context, string, string) error
@@ -140,6 +142,18 @@ func (m Manager) ListActiveByRepo(ctx context.Context, repoID string) ([]Session
 
 func (m Manager) ListRecentByRepo(ctx context.Context, repoID string, limit int) ([]Session, error) {
 	return m.store.ListRecentByRepo(ctx, repoID, limit)
+}
+
+func (m Manager) ListActiveAll(ctx context.Context) ([]Session, error) {
+	items, err := m.store.ListActiveAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return filterFresh(items, m.now().Add(-StaleAfter).Unix()), nil
+}
+
+func (m Manager) ListRecentAll(ctx context.Context, limit int) ([]Session, error) {
+	return m.store.ListRecentAll(ctx, limit)
 }
 
 func (m Manager) parentForInit(ctx context.Context, input InitInput) (Session, error) {
@@ -288,6 +302,22 @@ func (m Manager) Resolve(ctx context.Context, workspaceRoot, reference string) (
 		return Session{}, fmt.Errorf("%w: %q matches %d sessions", ErrAmbiguous, reference, len(matches))
 	}
 	return matches[0], nil
+}
+
+// ResolveGlobal resolves a target across every workspace on the machine.
+// An exact full session ID always wins and is unique, so it resolves regardless
+// of workspace. Anything shorter (name, short ID, prefix) is only matched within
+// the caller's own workspace to avoid cross-machine collisions; the caller must
+// use the full ID (visible on `pane board --global`) to reach a foreign session.
+func (m Manager) ResolveGlobal(ctx context.Context, workspaceRoot, reference string) (Session, error) {
+	reference = strings.TrimSpace(reference)
+	if reference == "" {
+		return Session{}, ErrNotFound
+	}
+	if exact, err := m.store.FindByID(ctx, reference); err == nil {
+		return exact, nil
+	}
+	return m.Resolve(ctx, workspaceRoot, reference)
 }
 
 func matchesSessionReference(sessionID, reference string) bool {

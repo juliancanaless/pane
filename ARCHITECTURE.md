@@ -79,7 +79,8 @@ It exposes commands such as:
 - `pane continue <session-id>`
 - `pane spawn <command> [args...]`
 - `pane history [--since <duration>] [--lineage] [--format work-log]`
-- `pane ask <session-id> <message>`
+- `pane board [--repo|--global]`
+- `pane ask [--global] <session-id> <message>`
 - `pane inbox`
 - `pane reply <message-id> <message>`
 - `pane state set|get|list|namespaces|delete ...`
@@ -187,6 +188,13 @@ It answers:
 - where is each session working?
 - what should another agent know before acting?
 
+Board scope is selectable: default workspace, `--repo` for sibling worktrees of
+the same repository, and `--global` for every session on the machine across all
+workspaces. The global board is a roster only — overlap, semantic, and git
+signals are keyed to a single `workspace_root`, so they are omitted at machine
+scope where they would be meaningless. Its purpose is discovery: find the full
+session id of a peer in another workspace to `pane ask --global`.
+
 Current board data:
 
 - session id and short id
@@ -231,6 +239,14 @@ pane reply <message-id> "answer"
 ```
 
 Messages remove the human as the context router.
+
+Messages are stored and delivered by global session id, not by workspace — the
+machine runs a single daemon and database, so the message plane is already
+machine-wide. By default `pane ask` only *resolves* targets within the caller's
+workspace. `pane ask --global <full-session-id>` lifts that restriction so a
+session can message any other session on the machine; an exact full session id
+always resolves, while names and short ids stay workspace-scoped to avoid
+cross-machine collisions. Discover foreign sessions with `pane board --global`.
 
 ### Git guard layer: `internal/gitguard`
 

@@ -31,6 +31,35 @@ func TestSessionStorePersistsRepoIdentity(t *testing.T) {
 	}
 }
 
+func TestSessionStoreListsActiveAllAcrossWorkspaces(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	store := NewSessionStore(db)
+	ctx := context.Background()
+	values := []session.Session{
+		{ID: "session-a", PaneID: "pane-a", WorkspaceRoot: "/repo-one", RepoID: "/repo-one/.git", StartedAt: 1, LastSeenAt: 30, Status: session.StatusActive},
+		{ID: "session-b", PaneID: "pane-b", WorkspaceRoot: "/repo-two", RepoID: "/repo-two/.git", StartedAt: 1, LastSeenAt: 20, Status: session.StatusIdle},
+		{ID: "session-c", PaneID: "pane-c", WorkspaceRoot: "/repo-three", RepoID: "/repo-three/.git", StartedAt: 1, LastSeenAt: 10, Status: session.StatusClosed},
+	}
+	for _, value := range values {
+		if err := store.Save(ctx, value); err != nil {
+			t.Fatalf("Save returned error: %v", err)
+		}
+	}
+	got, err := store.ListActiveAll(ctx)
+	if err != nil {
+		t.Fatalf("ListActiveAll returned error: %v", err)
+	}
+	// Spans workspaces, excludes closed, ordered by last_seen_at desc.
+	if len(got) != 2 || got[0].ID != "session-a" || got[1].ID != "session-b" {
+		t.Fatalf("unexpected sessions: %#v", got)
+	}
+}
+
 func TestSessionStoreListsActiveByRepo(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

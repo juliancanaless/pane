@@ -9,10 +9,15 @@ import (
 
 func Render(value Board, now time.Time) string {
 	var out strings.Builder
-	fmt.Fprintf(&out, "[Pane] Workspace board\n")
-	fmt.Fprintf(&out, "Workspace: %s\n", value.WorkspaceRoot)
-	if value.Scope == "repo" && value.RepoID != "" {
-		fmt.Fprintf(&out, "Scope: repository (%s)\n", value.RepoID)
+	if value.Scope == "machine" {
+		fmt.Fprintf(&out, "[Pane] Machine board\n")
+		fmt.Fprintf(&out, "Scope: machine (all workspaces)\n")
+	} else {
+		fmt.Fprintf(&out, "[Pane] Workspace board\n")
+		fmt.Fprintf(&out, "Workspace: %s\n", value.WorkspaceRoot)
+		if value.Scope == "repo" && value.RepoID != "" {
+			fmt.Fprintf(&out, "Scope: repository (%s)\n", value.RepoID)
+		}
 	}
 	fmt.Fprintf(&out, "Sessions: %d\n", len(value.Sessions))
 
@@ -46,7 +51,9 @@ func Render(value Board, now time.Time) string {
 			workspaceRoot = item.WorkspaceRoot
 		}
 		fmt.Fprintf(&out, "  CWD: %s\n", displayPath(workspaceRoot, item.CWD))
-		if value.Scope == "repo" && item.WorkspaceRoot != "" && item.WorkspaceRoot != value.WorkspaceRoot {
+		if value.Scope == "machine" && item.WorkspaceRoot != "" {
+			fmt.Fprintf(&out, "  Workspace: %s\n", item.WorkspaceRoot)
+		} else if value.Scope == "repo" && item.WorkspaceRoot != "" && item.WorkspaceRoot != value.WorkspaceRoot {
 			fmt.Fprintf(&out, "  Worktree: %s\n", item.WorkspaceRoot)
 		}
 		fmt.Fprintf(&out, "  Last seen: %s\n", relativeTime(item.LastSeenAt, now))

@@ -247,6 +247,68 @@ func TestBoardRepoScopeShowsSiblingWorktrees(t *testing.T) {
 	}
 }
 
+func TestBoardMachineScopeAndCrossWorkspaceSend(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	d := NewForTest(Config{SocketPath: "test.sock"}, session.NewManager(store.NewSessionStore(db)), store.NewMessageStore(db))
+	d.activityStore = store.NewFileActivityStore(db)
+	// Two sessions in entirely separate repositories/workspaces.
+	envA := map[string]any{"pane_id": "pane-a", "workspace_root": "/repo-one", "cwd": "/repo-one", "branch": "main", "repo_id": "/repo-one/.git", "git_common_dir": "/repo-one/.git"}
+	envB := map[string]any{"pane_id": "pane-b", "workspace_root": "/repo-two", "cwd": "/repo-two", "branch": "main", "repo_id": "/repo-two/.git", "git_common_dir": "/repo-two/.git"}
+	initA := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envA}, func() {})
+	initB := d.Handle(protocol.Request{Type: protocol.RequestSessionInit, Payload: envB}, func() {})
+	if !initA.OK || !initB.OK {
+		t.Fatalf("init failed: %#v %#v", initA, initB)
+	}
+	sessionB := initB.Payload["session_id"].(string)
+
+	// Default workspace board for A sees only A.
+	local := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/repo-one", "repo_id": "/repo-one/.git"}}, func() {})
+	if !strings.Contains(local.Payload["text"].(string), "Sessions: 1") {
+		t.Fatalf("workspace board should be local-only:\n%s", local.Payload["text"].(string))
+	}
+
+	// Machine board sees both sessions across repos, with each workspace shown.
+	machine := d.Handle(protocol.Request{Type: protocol.RequestGetBoard, Payload: map[string]any{"workspace_root": "/repo-one", "scope": "machine"}}, func() {})
+	if !machine.OK {
+		t.Fatalf("machine board failed: %#v", machine)
+	}
+	text := machine.Payload["text"].(string)
+	for _, want := range []string{"Machine board", "Scope: machine", "Sessions: 2", "Workspace: /repo-two"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("machine board missing %q:\n%s", want, text)
+		}
+	}
+
+	// A workspace-scoped send to the foreign session is refused.
+	refused := d.Handle(protocol.Request{Type: protocol.RequestMessageSend, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/repo-one", "to_session": sessionB, "body": "hi"}}, func() {})
+	if refused.OK {
+		t.Fatalf("workspace-scoped send to foreign session should fail, got %#v", refused)
+	}
+
+	// A global send to the foreign session's full ID succeeds and delivers.
+	sent := d.Handle(protocol.Request{Type: protocol.RequestMessageSend, Payload: map[string]any{"pane_id": "pane-a", "workspace_root": "/repo-one", "to_session": sessionB, "body": "ping from repo-one", "scope": "global"}}, func() {})
+	if !sent.OK {
+		t.Fatalf("global send failed: %#v", sent)
+	}
+	if sent.Payload["to_session"].(string) != sessionB {
+		t.Fatalf("global send to_session = %v, want %s", sent.Payload["to_session"], sessionB)
+	}
+
+	// B's inbox (in its own workspace) receives it.
+	inbox := d.Handle(protocol.Request{Type: protocol.RequestMessageList, Payload: map[string]any{"pane_id": "pane-b", "workspace_root": "/repo-two"}}, func() {})
+	if !inbox.OK {
+		t.Fatalf("inbox failed: %#v", inbox)
+	}
+	if !strings.Contains(inbox.Payload["text"].(string), "ping from repo-one") {
+		t.Fatalf("foreign message not delivered to inbox:\n%s", inbox.Payload["text"].(string))
+	}
+}
+
 func TestGitPreflightWarnsAcrossSiblingWorktrees(t *testing.T) {
 	db, err := store.Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

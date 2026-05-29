@@ -108,6 +108,34 @@ LIMIT ?
 	return scanSessions(rows)
 }
 
+func (s SessionStore) ListActiveAll(ctx context.Context) ([]session.Session, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT `+sessionColumns+`
+FROM sessions
+WHERE status IN ('active', 'idle')
+ORDER BY last_seen_at DESC
+`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSessions(rows)
+}
+
+func (s SessionStore) ListRecentAll(ctx context.Context, limit int) ([]session.Session, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT `+sessionColumns+`
+FROM sessions
+ORDER BY last_seen_at DESC
+LIMIT ?
+`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSessions(rows)
+}
+
 func (s SessionStore) ListActiveByRepo(ctx context.Context, repoID string) ([]session.Session, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT `+sessionColumns+`

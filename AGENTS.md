@@ -78,6 +78,19 @@ Ask other sessions directly instead of routing through the human:
 ./bin/pane reply <message-id> "answer"
 ```
 
+To coordinate with a session in another repository or workspace, list every
+session on the machine, then message one by its full session id:
+
+```bash
+./bin/pane board --global                              # all sessions, all workspaces
+./bin/pane ask --global <full-session-id> "question"   # reach a session anywhere
+```
+
+`--global` requires the full session id (shown on the global board); names and
+short ids only resolve within your own workspace to avoid cross-machine
+collisions. Replies and inbox work the same regardless of which workspace the
+peer is in.
+
 ## Persistent state
 
 Use namespaced JSON state for compact facts that should survive the current chat/session but do not belong in source files:

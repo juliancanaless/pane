@@ -67,6 +67,14 @@ func (f *fakeStore) ListRecentByRepo(context.Context, string, int) ([]Session, e
 	return f.ListRecentByWorkspace(context.Background(), "", 0)
 }
 
+func (f *fakeStore) ListActiveAll(context.Context) ([]Session, error) {
+	return f.ListActiveByWorkspace(context.Background(), "")
+}
+
+func (f *fakeStore) ListRecentAll(context.Context, int) ([]Session, error) {
+	return f.ListRecentByWorkspace(context.Background(), "", 0)
+}
+
 func (f *fakeStore) UpdateIntent(context.Context, string, string, int64) error {
 	return nil
 }
@@ -111,6 +119,37 @@ func (f *fakeStore) CloseStaleByWorkspace(_ context.Context, _ string, seenBefor
 		}
 	}
 	return count, nil
+}
+
+func TestResolveGlobalFindsForeignSessionByExactID(t *testing.T) {
+	foreign := Session{ID: "session-foreign", WorkspaceRoot: "/other-repo", Status: StatusActive}
+	store := &fakeStore{byID: foreign}
+	manager := NewManager(store)
+	ctx := context.Background()
+
+	// Workspace-scoped Resolve must refuse a session in another workspace.
+	if _, err := manager.Resolve(ctx, "/my-repo", "session-foreign"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Resolve across workspace = %v, want ErrNotFound", err)
+	}
+
+	// Global resolve accepts the exact full ID regardless of workspace.
+	got, err := manager.ResolveGlobal(ctx, "/my-repo", "session-foreign")
+	if err != nil {
+		t.Fatalf("ResolveGlobal returned error: %v", err)
+	}
+	if got.ID != "session-foreign" {
+		t.Fatalf("ResolveGlobal id = %q, want session-foreign", got.ID)
+	}
+}
+
+func TestResolveGlobalFallsBackToWorkspaceForShortRef(t *testing.T) {
+	store := &fakeStore{}
+	manager := NewManager(store)
+	// A non-ID reference with no local match stays unresolved — no cross-machine
+	// short-id/name matching.
+	if _, err := manager.ResolveGlobal(context.Background(), "/my-repo", "auth"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("ResolveGlobal short ref = %v, want ErrNotFound", err)
+	}
 }
 
 func TestManagerInitCreatesWhenNoResumableSession(t *testing.T) {

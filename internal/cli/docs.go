@@ -44,6 +44,10 @@ Coordinate with peers:
   pane inbox
   pane reply <message-id> "answer"
 
+Coordinate across workspaces:
+  pane board --global                       See every session on the machine
+  pane ask --global <full-session-id> "question"   Message a session in another workspace
+
 Leave handoff state:
   pane state set agent.handoff '{"summary":"what changed","next":"what to do next"}'
   pane history --since 24h --lineage
@@ -66,6 +70,8 @@ Expected loop:
 
 Do not assume the human knows what other panes are doing. Inspect Pane yourself.
 Do not ask the human to relay routine cross-agent messages. Use Pane messaging.
+To coordinate with an agent in another repository or workspace, run pane board --global
+to find its full session id, then pane ask --global <full-session-id> "<message>".
 
 Useful state conventions:
   pane state set agent.notes '{"handoff":"tests need review"}'
@@ -87,11 +93,13 @@ Awareness:
   pane summary                      Startup/resume context
   pane board                        Active workspace board
   pane board --repo                 Board across sibling worktrees
+  pane board --global               Board across every workspace on the machine
   pane history --lineage            Show session lineage
   pane history --format work-log    Work report
 
 Coordination:
   pane ask <target> <message>       Ask another session
+  pane ask --global <full-id> <msg> Ask a session in another workspace (by full ID)
   pane inbox                        Read queued messages
   pane reply <msg-id> <message>     Reply to thread
 

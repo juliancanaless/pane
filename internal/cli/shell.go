@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -123,13 +124,13 @@ func runSetup(args []string, stdout io.Writer) error {
 		return err
 	}
 	installedBin := filepath.Join(installDir, "pane")
-	if err := copyFile(executable, installedBin, 0o755); err != nil {
+	if err := installExecutable(executable, installedBin, 0o755); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "installed binary: %s\n", installedBin)
 	if analyzerSource, err := findAnalyzerSource(executable); err == nil {
 		installedAnalyzer := filepath.Join(installDir, "pane-analyze")
-		if err := copyFile(analyzerSource, installedAnalyzer, 0o755); err != nil {
+		if err := installExecutable(analyzerSource, installedAnalyzer, 0o755); err != nil {
 			return err
 		}
 		_, _ = fmt.Fprintf(stdout, "installed analyzer: %s\n", installedAnalyzer)
@@ -295,6 +296,24 @@ func copyFile(src, dst string, mode os.FileMode) error {
 		return err
 	}
 	return os.WriteFile(dst, content, mode)
+}
+
+// installExecutable copies a binary and, on macOS, re-signs it ad-hoc.
+// Rewriting the bytes of a binary that carries Go's linker ad-hoc signature
+// invalidates that signature on Apple Silicon, and the kernel then SIGKILLs the
+// copy. Re-signing makes a source/HEAD install runnable. Best effort: if
+// codesign is unavailable the copy still happens (it may already be valid, e.g.
+// for a brew-bottled binary).
+func installExecutable(src, dst string, mode os.FileMode) error {
+	if err := copyFile(src, dst, mode); err != nil {
+		return err
+	}
+	if runtime.GOOS == "darwin" {
+		if path, err := exec.LookPath("codesign"); err == nil {
+			_ = exec.Command(path, "--force", "--sign", "-", dst).Run()
+		}
+	}
+	return nil
 }
 
 func installGitShim(paneBin, home string) (string, error) {
