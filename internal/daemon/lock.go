@@ -3,6 +3,7 @@ package daemon
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -58,14 +59,41 @@ func CleanStale(pidPath, socketPath string) (cleaned bool, err error) {
 		return false, nil
 	}
 
-	if processAlive(pid) {
+	// Only treat the PID as a live daemon if it's both alive AND actually a
+	// pane process. After a reboot the OS can recycle the old daemon's PID to
+	// an unrelated process (e.g. a system agent); a bare liveness check would
+	// then falsely report "daemon already running" forever, since the dead
+	// daemon's socket no longer accepts connections. Verifying identity makes
+	// recycled PIDs read as stale so we clean up and restart cleanly.
+	if processAlive(pid) && processIsPaneDaemon(pid) {
 		return false, fmt.Errorf("daemon already running (pid %d from %s)", pid, pidPath)
 	}
 
-	// Process is dead — clean up stale files
+	// Process is dead, or the PID was recycled to a non-pane process — clean
+	// up stale files.
 	_ = os.Remove(pidPath)
 	_ = os.Remove(socketPath)
 	return true, nil
+}
+
+// processIsPaneDaemon reports whether the given live PID is actually a pane
+// process, guarding against PID recycling. It inspects the process's command
+// name via ps (portable across macOS and Linux). On any uncertainty it returns
+// false, so callers treat the state as stale rather than blocking a restart.
+// It is a var so tests can substitute a deterministic check.
+var processIsPaneDaemon = func(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
+	if err != nil {
+		return false
+	}
+	name := strings.TrimSpace(string(out))
+	if name == "" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(filepath.Base(name)), "pane")
 }
 
 func readPIDFile(path string) (int, error) {

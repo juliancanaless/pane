@@ -127,16 +127,48 @@ func TestCleanStale_DeadProcess(t *testing.T) {
 	}
 }
 
-func TestCleanStale_LiveProcess(t *testing.T) {
+func TestCleanStale_LivePaneProcess(t *testing.T) {
 	dir := t.TempDir()
 	pidPath := filepath.Join(dir, "live.pid")
 	sockPath := filepath.Join(dir, "live.sock")
 
-	// Use our own PID — definitely alive
+	// Use our own PID — definitely alive — and stub the identity check to
+	// confirm it's a pane process, so CleanStale must refuse to clean it.
+	orig := processIsPaneDaemon
+	processIsPaneDaemon = func(int) bool { return true }
+	defer func() { processIsPaneDaemon = orig }()
+
 	_ = os.WriteFile(pidPath, []byte(fmt.Sprintf("%d\n", os.Getpid())), 0o644)
 
 	_, err := CleanStale(pidPath, sockPath)
 	if err == nil {
-		t.Fatal("expected error for live process")
+		t.Fatal("expected error for live pane process")
+	}
+}
+
+func TestCleanStale_RecycledPID(t *testing.T) {
+	dir := t.TempDir()
+	pidPath := filepath.Join(dir, "recycled.pid")
+	sockPath := filepath.Join(dir, "recycled.sock")
+
+	// PID 1 (init/launchd) is always alive but is never a pane process. This
+	// simulates a reboot recycling the old daemon's PID to an unrelated
+	// process — CleanStale must treat it as stale and clean up so the daemon
+	// can restart, rather than reporting "daemon already running" forever.
+	_ = os.WriteFile(pidPath, []byte("1\n"), 0o644)
+	_ = os.WriteFile(sockPath, []byte("x"), 0o644)
+
+	cleaned, err := CleanStale(pidPath, sockPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cleaned {
+		t.Fatal("expected recycled PID state to be cleaned")
+	}
+	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
+		t.Fatal("PID file should have been removed")
+	}
+	if _, err := os.Stat(sockPath); !os.IsNotExist(err) {
+		t.Fatal("socket file should have been removed")
 	}
 }
