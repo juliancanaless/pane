@@ -6,6 +6,9 @@ type Response struct {
 	Block    bool           `json:"block"`
 	Payload  map[string]any `json:"payload,omitempty"`
 	Error    string         `json:"error,omitempty"`
+	// DaemonVersion is stamped by the daemon on every response. Empty for
+	// daemons predating version stamping; the CLI treats those as stale.
+	DaemonVersion string `json:"daemon_version,omitempty"`
 }
 
 func Success(payload map[string]any, warnings ...string) Response {

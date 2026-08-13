@@ -2,8 +2,10 @@ package session
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,18 +20,27 @@ type Environment struct {
 	ParentSessionID string
 }
 
+// DetectEnvironment describes the calling process for the daemon. Git is
+// optional: outside a repository the workspace root falls back to
+// PANE_WORKSPACE_ROOT or the working directory, and Branch/RepoID stay empty
+// so git-scoped features degrade instead of blocking coordination.
 func DetectEnvironment() (Environment, error) {
 	tty := detectTTY()
-	workspaceRoot, err := gitOutput("rev-parse", "--show-toplevel")
-	if err != nil {
-		return Environment{}, err
-	}
-	branch, _ := gitOutput("branch", "--show-current")
-	repository := DetectRepository(workspaceRoot)
 	cwd, err := os.Getwd()
 	if err != nil {
 		return Environment{}, err
 	}
+	workspaceRoot := os.Getenv("PANE_WORKSPACE_ROOT")
+	if workspaceRoot == "" {
+		workspaceRoot, _ = gitOutput("rev-parse", "--show-toplevel")
+	}
+	if workspaceRoot == "" {
+		workspaceRoot = cwd
+	} else if absolute, absErr := filepath.Abs(workspaceRoot); absErr == nil {
+		workspaceRoot = absolute
+	}
+	branch, _ := gitOutput("branch", "--show-current")
+	repository := DetectRepository(workspaceRoot)
 	return Environment{
 		PaneID:          DetectPaneID(tty),
 		TTY:             tty,
@@ -56,6 +67,9 @@ func gitOutput(args ...string) (string, error) {
 	cmd.Stderr = &stderr
 	output, err := cmd.Output()
 	if err != nil {
+		if message, _, _ := strings.Cut(strings.TrimSpace(stderr.String()), "\n"); message != "" {
+			return "", fmt.Errorf("git %s: %s", args[0], message)
+		}
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/juliancanalez/pane/internal/protocol"
+	"github.com/juliancanalez/pane/internal/version"
 )
 
 func TestHandleHealth(t *testing.T) {
@@ -14,6 +15,19 @@ func TestHandleHealth(t *testing.T) {
 	}
 	if response.Payload["status"] != "ok" {
 		t.Fatalf("payload = %#v", response.Payload)
+	}
+	if response.Payload["version"] != version.Version {
+		t.Fatalf("health version = %#v, want %q", response.Payload["version"], version.Version)
+	}
+}
+
+func TestHandleStampsDaemonVersionOnEveryResponse(t *testing.T) {
+	d := New(Config{SocketPath: "/tmp/pane-test.sock"})
+	for _, requestType := range []protocol.RequestType{protocol.RequestDaemonHealth, protocol.RequestDaemonStop, protocol.RequestType("unknown")} {
+		response := d.Handle(protocol.Request{Type: requestType}, func() {})
+		if response.DaemonVersion != version.Version {
+			t.Errorf("%s: DaemonVersion = %q, want %q", requestType, response.DaemonVersion, version.Version)
+		}
 	}
 }
 

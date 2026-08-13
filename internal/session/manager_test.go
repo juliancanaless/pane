@@ -271,6 +271,37 @@ func TestManagerHeartbeatRefreshesExistingSession(t *testing.T) {
 	}
 }
 
+func TestManagerHeartbeatNoCreateSkipsMissingSession(t *testing.T) {
+	store := &fakeStore{findErr: ErrNotFound}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	result, err := manager.Heartbeat(context.Background(), InitInput{PaneID: "pane-1", WorkspaceRoot: "/not-a-repo", NoCreate: true})
+	if err != nil {
+		t.Fatalf("Heartbeat returned error: %v", err)
+	}
+	if result.Session.ID != "" {
+		t.Fatalf("expected no session, got %#v", result.Session)
+	}
+	if store.saved.ID != "" {
+		t.Fatalf("no session should be saved, got %#v", store.saved)
+	}
+}
+
+func TestManagerHeartbeatNoCreateStillRefreshesExisting(t *testing.T) {
+	store := &fakeStore{status: Session{ID: "session-existing", WorkspaceRoot: "/not-a-repo", Status: StatusIdle}}
+	manager := NewManager(store)
+	manager.now = func() time.Time { return time.Unix(1000, 0) }
+
+	result, err := manager.Heartbeat(context.Background(), InitInput{PaneID: "pane-1", WorkspaceRoot: "/not-a-repo", NoCreate: true})
+	if err != nil {
+		t.Fatalf("Heartbeat returned error: %v", err)
+	}
+	if !result.Resumed || result.Session.ID != "session-existing" {
+		t.Fatalf("expected existing session refresh, got %#v", result)
+	}
+}
+
 func TestManagerResolveMatchesShortID(t *testing.T) {
 	store := &fakeStore{recent: []Session{{ID: "session-abcdef1234567890", WorkspaceRoot: "/repo"}}}
 	manager := NewManager(store)

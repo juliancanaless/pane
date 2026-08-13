@@ -21,6 +21,7 @@ import (
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/session"
 	"github.com/juliancanalez/pane/internal/store"
+	"github.com/juliancanalez/pane/internal/version"
 )
 
 const usage = `Pane gives concurrent coding agents shared local memory over a workspace.
@@ -54,6 +55,7 @@ Usage:
   pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell]
                                     Install local binary, integrations, and start daemon
   pane doctor                       Diagnose local Pane installation and daemon health
+  pane version                      Print the pane version
   pane docs [topic]                 Built-in quickstart, agent guide, FAQ, and links
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks
@@ -80,7 +82,12 @@ Usage:
 
 Session and board commands require the daemon to be running.
 
+Pane works outside git repositories too: the workspace root falls back to the
+current directory (or PANE_WORKSPACE_ROOT), and git guardrails and --repo
+scope are simply unavailable there.
+
 Environment overrides:
+  PANE_WORKSPACE_ROOT               Pin the workspace root (useful outside git repos)
   PANE_DB_PATH                      Use a custom SQLite database path
   PANE_SOCKET_PATH                  Use a custom daemon socket path
   PANE_PID_PATH                     Use a custom daemon PID file path
@@ -96,6 +103,9 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	switch args[0] {
+	case "version", "--version", "-v":
+		_, _ = fmt.Fprintf(stdout, "pane %s\n", version.Version)
+		return nil
 	case "daemon":
 		return runDaemon(args[1:], stdout)
 	case "init":
@@ -183,6 +193,14 @@ func runDaemon(args []string, stdout io.Writer) error {
 	switch subcmd {
 	case "start":
 		if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
+			if version.IsOlder(response.DaemonVersion, version.Version) {
+				_, _ = fmt.Fprintf(stdout, "daemon is older than this CLI; restarting with %s\n", version.Version)
+				if err := daemon.Restart(socket); err != nil {
+					return err
+				}
+				_, _ = fmt.Fprintf(stdout, "daemon restarted\nsocket: %s\ndb: %s\nlog: %s\n", socket, db, log)
+				return nil
+			}
 			_, _ = fmt.Fprintf(stdout, "daemon already running\npid: %v\nsocket: %s\ndb: %s\nlog: %s\n", response.Payload["pid"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["log_path"])
 			return nil
 		}
@@ -203,7 +221,7 @@ func runDaemon(args []string, stdout io.Writer) error {
 		if !response.OK {
 			return errors.New(response.Error)
 		}
-		_, _ = fmt.Fprintf(stdout, "daemon: %s\npid: %v\nuptime_ms: %v\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", response.Payload["status"], response.Payload["pid"], response.Payload["uptime_ms"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["pid_path"], response.Payload["log_path"])
+		_, _ = fmt.Fprintf(stdout, "daemon: %s\nversion: %s\npid: %v\nuptime_ms: %v\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", response.Payload["status"], displayDaemonVersion(response), response.Payload["pid"], response.Payload["uptime_ms"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["pid_path"], response.Payload["log_path"])
 		return nil
 	case "status":
 		return runDaemonStatus(stdout, client, socket, db, pid, log)
@@ -222,10 +240,17 @@ func runDaemon(args []string, stdout io.Writer) error {
 	}
 }
 
+func displayDaemonVersion(response protocol.Response) string {
+	if response.DaemonVersion == "" {
+		return "pre-0.1.5"
+	}
+	return response.DaemonVersion
+}
+
 func runDaemonStatus(stdout io.Writer, client daemon.Client, socket, db, pid, log string) error {
 	response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth})
 	if err == nil && response.OK {
-		_, _ = fmt.Fprintf(stdout, "daemon: running\npid: %v\nuptime_ms: %v\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", response.Payload["pid"], response.Payload["uptime_ms"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["pid_path"], response.Payload["log_path"])
+		_, _ = fmt.Fprintf(stdout, "daemon: running\nversion: %s\npid: %v\nuptime_ms: %v\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", displayDaemonVersion(response), response.Payload["pid"], response.Payload["uptime_ms"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["pid_path"], response.Payload["log_path"])
 		return nil
 	}
 	_, _ = fmt.Fprintf(stdout, "daemon: stopped\nsocket: %s\ndb: %s\npid_file: %s\nlog: %s\n", socket, db, pid, log)
@@ -262,7 +287,14 @@ func runInit(args []string, stdout io.Writer) error {
 	if payloadBool(response, "resumed") {
 		state = "resumed"
 	}
-	_, _ = fmt.Fprintf(stdout, "session %s: %s\nbranch: %s\nworkspace: %s\n", state, payloadString(response, "session_id"), payloadString(response, "branch"), payloadString(response, "workspace_root"))
+	branch := payloadString(response, "branch")
+	if branch == "" {
+		branch = "(none)"
+	}
+	_, _ = fmt.Fprintf(stdout, "session %s: %s\nbranch: %s\nworkspace: %s\n", state, payloadString(response, "session_id"), branch, payloadString(response, "workspace_root"))
+	if payloadString(response, "repo_id") == "" {
+		_, _ = fmt.Fprintf(stdout, "note: not a git repository — coordination works; git guardrails and --repo scope are off\n")
+	}
 	return nil
 }
 
@@ -274,12 +306,23 @@ func runHeartbeat(args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionHeartbeat, Payload: protocol.EnvironmentPayload(env)})
+	payload := protocol.EnvironmentPayload(env)
+	if env.RepoID == "" {
+		// Outside git repositories heartbeats only refresh sessions that
+		// `pane init` created deliberately, so shell hooks passing through
+		// arbitrary directories leave no trace.
+		payload["no_create"] = true
+	}
+	response, err := sendDaemonRequest(protocol.Request{Type: protocol.RequestSessionHeartbeat, Payload: payload})
 	if err != nil {
 		return err
 	}
 	if !response.OK {
 		return errors.New(response.Error)
+	}
+	if payloadBool(response, "skipped") {
+		_, _ = fmt.Fprintf(stdout, "heartbeat: skipped (no session here; run `pane init` to create one)\n")
+		return nil
 	}
 	_, _ = fmt.Fprintf(stdout, "heartbeat: %s\n", payloadString(response, "session_id"))
 	return nil
@@ -345,6 +388,9 @@ func runBoard(args []string, stdout io.Writer) error {
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
+	}
+	if repoScope && env.RepoID == "" {
+		return errors.New("pane board --repo: not inside a git repository")
 	}
 	reqType := protocol.RequestGetBoard
 	payload := protocol.BoardRequestPayload(env)
@@ -511,6 +557,9 @@ func runHistory(args []string, stdout io.Writer) error {
 	env, err := session.DetectEnvironment()
 	if err != nil {
 		return err
+	}
+	if repoScope && env.RepoID == "" {
+		return errors.New("pane history --repo: not inside a git repository")
 	}
 	payload := protocol.HistoryRequestPayload(env, since)
 	if repoScope {

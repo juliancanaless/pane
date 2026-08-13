@@ -14,6 +14,7 @@ import (
 	"github.com/juliancanalez/pane/internal/daemon"
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/store"
+	"github.com/juliancanalez/pane/internal/version"
 )
 
 func runShellInit(args []string, stdout io.Writer) error {
@@ -171,12 +172,20 @@ func runSetup(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "skipped daemon start\n")
 		return nil
 	}
-	client := daemon.Client{SocketPath: store.DefaultSocketPath(home)}
+	socket := store.DefaultSocketPath(home)
+	client := daemon.Client{SocketPath: socket}
 	if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
+		if version.IsOlder(response.DaemonVersion, version.Version) {
+			if err := daemon.Restart(socket); err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintf(stdout, "daemon restarted with %s\n", version.Version)
+			return nil
+		}
 		_, _ = fmt.Fprintf(stdout, "daemon already running\n")
 		return nil
 	}
-	if err := daemon.StartBackground(store.DefaultSocketPath(home)); err != nil {
+	if err := daemon.StartBackground(socket); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "daemon started\n")
@@ -192,6 +201,7 @@ func runDoctor(args []string, stdout io.Writer) error {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	_, _ = fmt.Fprintf(stdout, "cli version: %s\n", version.Version)
 	installedBin := filepath.Join(home, ".pane", "bin", "pane")
 	checkPath(stdout, "binary", installedBin)
 	checkPath(stdout, "analyzer", filepath.Join(home, ".pane", "bin", "pane-analyze"))
@@ -206,7 +216,10 @@ func runDoctor(args []string, stdout io.Writer) error {
 	}
 	client := daemon.Client{SocketPath: store.DefaultSocketPath(home)}
 	if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
-		_, _ = fmt.Fprintf(stdout, "ok daemon running pid=%v uptime_ms=%v\n", response.Payload["pid"], response.Payload["uptime_ms"])
+		_, _ = fmt.Fprintf(stdout, "ok daemon running version=%s pid=%v uptime_ms=%v\n", displayDaemonVersion(response), response.Payload["pid"], response.Payload["uptime_ms"])
+		if version.IsOlder(response.DaemonVersion, version.Version) {
+			_, _ = fmt.Fprintf(stdout, "warn daemon older than CLI; it restarts automatically on the next pane command\n")
+		}
 	} else {
 		_, _ = fmt.Fprintf(stdout, "warn daemon unreachable: %v\n", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/juliancanalez/pane/internal/daemon"
 	"github.com/juliancanalez/pane/internal/protocol"
 	"github.com/juliancanalez/pane/internal/store"
+	"github.com/juliancanalez/pane/internal/version"
 )
 
 func sendDaemonRequest(request protocol.Request) (protocol.Response, error) {
@@ -19,7 +20,25 @@ func sendDaemonRequest(request protocol.Request) (protocol.Response, error) {
 	if err != nil {
 		return protocol.Response{}, fmt.Errorf("Pane daemon is not running or is unreachable; start it with `pane daemon start`: %w", err)
 	}
+	maybeRestartStaleDaemon(socket, request.Type, response.DaemonVersion)
 	return response, nil
+}
+
+// maybeRestartStaleDaemon replaces a daemon running an older release than this
+// CLI (an empty version means a pre-0.1.5 daemon). The triggering request was
+// already served by the old daemon, so nothing is retried; the next command
+// simply reaches the new daemon. Never downgrades a newer daemon.
+func maybeRestartStaleDaemon(socket string, requestType protocol.RequestType, daemonVersion string) {
+	if requestType == protocol.RequestDaemonStop || !version.IsOlder(daemonVersion, version.Version) {
+		return
+	}
+	if daemonVersion == "" {
+		daemonVersion = "pre-0.1.5"
+	}
+	fmt.Fprintf(os.Stderr, "[Pane] daemon (%s) is older than this CLI (%s); restarting daemon with the current binary\n", daemonVersion, version.Version)
+	if err := daemon.Restart(socket); err != nil {
+		fmt.Fprintf(os.Stderr, "[Pane] daemon restart failed: %v\n", err)
+	}
 }
 
 func logPath() (string, error) {

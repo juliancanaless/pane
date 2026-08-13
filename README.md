@@ -12,7 +12,7 @@ Pane is not an orchestrator. It does not assign tasks, schedule agents, or contr
 
 ## Install
 
-Pane v0.1.4 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
+Pane v0.1.5 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
 
 ```bash
 brew tap juliancanaless/pane

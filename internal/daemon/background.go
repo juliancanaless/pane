@@ -53,3 +53,19 @@ func StartBackground(socketPath string) error {
 	}
 	return fmt.Errorf("daemon started but did not become healthy within 3 seconds")
 }
+
+// Restart asks the daemon on socketPath to stop, waits for it to release the
+// socket, and starts a fresh background daemon from the current executable.
+// Used to replace a daemon left running by an older install.
+func Restart(socketPath string) error {
+	client := Client{SocketPath: socketPath, Timeout: 1 * time.Second}
+	if _, err := client.Send(protocol.Request{Type: protocol.RequestDaemonStop}); err == nil {
+		for i := 0; i < 30; i++ {
+			time.Sleep(100 * time.Millisecond)
+			if _, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err != nil {
+				break
+			}
+		}
+	}
+	return StartBackground(socketPath)
+}

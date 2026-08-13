@@ -78,6 +78,14 @@ Useful state conventions:
   pane state set summary.note '{"text":"shows in pane summary"}'
   pane state namespaces
   pane state list agent.
+
+Non-git directories:
+Pane does not require a git repository. In a plain directory (for example a
+manager agent coordinating from a scratch dir) pane init, board, ask/inbox,
+intent, and state work normally; the workspace root is the current directory
+(or PANE_WORKSPACE_ROOT). There is no branch, and git guardrails and --repo
+scope are off. Sessions there are only created by an explicit pane init,
+never by shell-hook heartbeats.
 `
 
 const docsCommands = `Pane common commands
@@ -162,6 +170,16 @@ Q: How do worktrees work?
 A: Use workspace-local commands by default and --repo to aggregate sibling worktrees:
      pane board --repo
      pane history --repo --lineage
+
+Q: Does Pane require a git repository?
+A: No. Outside a repository the workspace root is the current directory (or
+   PANE_WORKSPACE_ROOT); branch, git guardrails, and --repo scope are off.
+   Only an explicit pane init creates a session there.
+
+Q: How do upgrades reach the background daemon?
+A: Automatically. Any pane command that reaches a daemon older than the CLI
+   restarts it with the current binary. After brew upgrade pane, run
+   pane setup to refresh the ~/.pane/bin copies.
 `
 
 const docsLinks = `Pane online docs

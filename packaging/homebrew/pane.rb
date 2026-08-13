@@ -1,17 +1,17 @@
 class Pane < Formula
   desc "Shared local memory and coordination for concurrent coding agents"
   homepage "https://github.com/juliancanaless/pane"
-  version "0.1.4"
+  version "0.1.5"
   license "MIT"
   head "https://github.com/juliancanaless/pane.git", branch: "main"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/juliancanaless/pane/releases/download/v0.1.4/pane-v0.1.4-darwin-arm64.tar.gz"
-      sha256 "f3219220b885fcbc9f194708db7527e4ac5411befc9a6859bf533770e71dbf84"
+      url "https://github.com/juliancanaless/pane/releases/download/v0.1.5/pane-v0.1.5-darwin-arm64.tar.gz"
+      sha256 "82612f159b6ca50a726bd57aacea831f96252b01319c3270db6d4f06dd647a6f"
     else
-      url "https://github.com/juliancanaless/pane/releases/download/v0.1.4/pane-v0.1.4-darwin-amd64.tar.gz"
-      sha256 "4b789d9f79417d9e46a8adbdf1dd1ca6e72b18722900406d69e08a062ffb5297"
+      url "https://github.com/juliancanaless/pane/releases/download/v0.1.5/pane-v0.1.5-darwin-amd64.tar.gz"
+      sha256 "dcde3caa1b23cd9818cb9ccf9d79c92fbc6e30d988ecaf3cfcce857c5d847ef6"
     end
   end
 

@@ -40,6 +40,12 @@ The model is two-layered:
 
 Current first pass stores `repo_id` and `git_common_dir` on sessions, exposes `pane board --repo` and `pane history --repo`, and lets git preflight consider active sessions in sibling worktrees. Semantic graph normalization across worktrees is still future work.
 
+Git is optional. Outside a repository, `workspace_root` falls back to `PANE_WORKSPACE_ROOT` or the working directory and `repo_id` stays empty, which is the single flag the rest of the system keys on: git guardrails and `--repo` scope are unavailable, and shell-hook heartbeats refresh existing sessions but never create one (only an explicit `pane init` does), so passing through arbitrary directories leaves no sessions behind.
+
+### Daemon version handshake
+
+The daemon stamps its release version on every response. A CLI that receives a response from an older daemon (or a pre-versioning one that stamps nothing) restarts it in place with the current binary after serving the response — this is how `brew upgrade` reaches the long-running daemon without manual intervention. An older CLI never downgrades a newer daemon.
+
 ## Core components
 
 ### Analysis layer: `analysis/` and `internal/analysis`

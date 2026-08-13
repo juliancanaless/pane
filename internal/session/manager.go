@@ -45,6 +45,10 @@ type InitInput struct {
 	RepoID          string
 	GitCommonDir    string
 	ParentSessionID string
+	// NoCreate makes Heartbeat refresh an existing session only. Shell-hook
+	// heartbeats outside git repositories set it so wandering through
+	// arbitrary directories never mints sessions; explicit `pane init` does.
+	NoCreate bool
 }
 
 type InitResult struct {
@@ -105,6 +109,9 @@ func (m Manager) Heartbeat(ctx context.Context, input InitInput) (InitResult, er
 	now := m.now().Unix()
 	current, err := m.store.FindByPaneWorkspace(ctx, input.PaneID, input.WorkspaceRoot)
 	if errors.Is(err, ErrNotFound) {
+		if input.NoCreate {
+			return InitResult{}, nil
+		}
 		return m.Init(ctx, input)
 	}
 	if err != nil {

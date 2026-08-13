@@ -1,6 +1,6 @@
 # Install Pane
 
-Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.4`, with Homebrew binary assets for Intel and Apple Silicon Macs.
+Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.5`, with Homebrew binary assets for Intel and Apple Silicon Macs.
 
 ## Option 1: Homebrew tap
 
@@ -44,9 +44,22 @@ If you do not want setup to edit your shell rc file or start the daemon automati
 ./bin/pane setup --print-shell
 ```
 
+## Upgrade
+
+```bash
+brew upgrade pane
+pane setup
+```
+
+`pane setup` refreshes the `~/.pane/bin` copies that the shell hook and git
+shim point at. The background daemon takes care of itself: the first `pane`
+command that reaches a daemon older than the CLI restarts it with the new
+binary automatically.
+
 ## Verify
 
 ```bash
+pane version
 pane daemon health
 pane docs agents
 pane init

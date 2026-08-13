@@ -190,6 +190,33 @@ pane history --repo
 pane history --repo --lineage
 ```
 
+## Does Pane require a git repository?
+
+No. Since v0.1.5, Pane works in any directory. Outside a git repository the
+workspace root falls back to the current directory (or `PANE_WORKSPACE_ROOT`
+if set), and `pane init`, `board`, `ask`/`inbox`, `intent`, and `state` all
+work normally. What degrades: there is no branch, git guardrails have nothing
+to guard, and `--repo` scope is unavailable.
+
+One deliberate asymmetry: outside git repositories the shell hook's automatic
+heartbeat only refreshes sessions that already exist — it never creates one.
+Only an explicit `pane init` creates a session there, so `cd`-ing through
+random directories never pollutes the board. This is designed for e.g. a
+manager agent coordinating from a scratch directory that is not a checkout.
+
+## How do I upgrade Pane, and does the daemon pick up the new version?
+
+```bash
+brew upgrade pane
+pane setup   # refreshes ~/.pane/bin and the git shim
+```
+
+The daemon updates itself: every daemon response carries its version, and any
+`pane` command that reaches an older daemon restarts it in place with the
+current binary (a `[Pane] daemon ... restarting` notice goes to stderr). A
+newer daemon is never downgraded by an older CLI. `pane doctor` and
+`pane daemon status` show both CLI and daemon versions.
+
 ## Does Pane replace Git?
 
 No.

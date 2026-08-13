@@ -22,6 +22,7 @@ import (
 	"github.com/juliancanalez/pane/internal/session"
 	"github.com/juliancanalez/pane/internal/store"
 	"github.com/juliancanalez/pane/internal/summary"
+	"github.com/juliancanalez/pane/internal/version"
 )
 
 type Config struct {
@@ -180,10 +181,17 @@ func (d *Daemon) handleConn(conn net.Conn, requestStop func()) {
 }
 
 func (d *Daemon) Handle(request protocol.Request, requestStop func()) protocol.Response {
+	response := d.dispatch(request, requestStop)
+	response.DaemonVersion = version.Version
+	return response
+}
+
+func (d *Daemon) dispatch(request protocol.Request, requestStop func()) protocol.Response {
 	switch request.Type {
 	case protocol.RequestDaemonHealth:
 		return protocol.Success(map[string]any{
 			"status":      "ok",
+			"version":     version.Version,
 			"pid":         os.Getpid(),
 			"uptime_ms":   time.Since(d.started).Milliseconds(),
 			"socket_path": d.config.SocketPath,
@@ -270,10 +278,14 @@ func (d *Daemon) handleSessionHeartbeat(request protocol.Request) protocol.Respo
 		RepoID:          payloadString(request, "repo_id"),
 		GitCommonDir:    payloadString(request, "git_common_dir"),
 		ParentSessionID: payloadString(request, "parent_session_id"),
+		NoCreate:        payloadBool(request, "no_create"),
 	}
 	result, err := d.manager.Heartbeat(context.Background(), input)
 	if err != nil {
 		return protocol.Failure(err.Error())
+	}
+	if result.Session.ID == "" {
+		return protocol.Success(map[string]any{"skipped": true})
 	}
 	d.ensureWorkspaceWatcher(input.WorkspaceRoot)
 	payload := sessionPayload(result.Session)
