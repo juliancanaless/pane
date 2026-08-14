@@ -27,8 +27,8 @@ func wakeTarget(target session.Session) {
 	if os.Getenv("PANE_WAKE") == "off" || target.AgentSessionID == "" {
 		return
 	}
-	paneRef, ok := strings.CutPrefix(target.PaneID, "tmux:")
-	if !ok {
+	name, args := wakeCommand(target.PaneID)
+	if name == "" {
 		return
 	}
 	wakeMu.Lock()
@@ -38,5 +38,35 @@ func wakeTarget(target session.Session) {
 	}
 	lastWake[target.PaneID] = time.Now()
 	wakeMu.Unlock()
-	_ = exec.Command("tmux", "send-keys", "-t", paneRef, "pane inbox", "Enter").Run()
+	_ = exec.Command(name, args...).Run()
+}
+
+// wakeCommand builds the multiplexer-specific keystroke injection for a pane
+// id. An empty name means the pane is not addressable from outside (plain
+// tty, or a zellij id recorded without its session name).
+func wakeCommand(paneID string) (string, []string) {
+	if ref, ok := strings.CutPrefix(paneID, "cmux:"); ok {
+		// cmux interprets a literal \n escape sequence as Enter.
+		return cmuxBinary(), []string{"send", "--surface", ref, "--", `pane inbox\n`}
+	}
+	if ref, ok := strings.CutPrefix(paneID, "zellij:"); ok {
+		sessionName, paneRef, found := strings.Cut(ref, ":")
+		if !found {
+			return "", nil
+		}
+		return "zellij", []string{"--session", sessionName, "action", "write-chars", "--pane-id", paneRef, "pane inbox\r"}
+	}
+	if ref, ok := strings.CutPrefix(paneID, "tmux:"); ok {
+		return "tmux", []string{"send-keys", "-t", ref, "pane inbox", "Enter"}
+	}
+	return "", nil
+}
+
+// cmuxBinary resolves the cmux CLI: the surface's bundled CLI path when the
+// daemon inherited a cmux environment, else whatever is on PATH.
+func cmuxBinary() string {
+	if path := os.Getenv("CMUX_BUNDLED_CLI_PATH"); path != "" {
+		return path
+	}
+	return "cmux"
 }

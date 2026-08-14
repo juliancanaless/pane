@@ -111,7 +111,37 @@ func TestInstallClaudeIntegrationInstallsStatuslineWhenAbsent(t *testing.T) {
 	}
 }
 
+// restoreWorkingDir undoes chdirs done by enterAgentDir during a test, so a
+// deleted t.TempDir is never left as the package cwd for later tests.
+func restoreWorkingDir(t *testing.T) {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Errorf("restore cwd: %v", err)
+		}
+	})
+}
+
+func TestTruncateStatusKeepsShortAndTrimsLong(t *testing.T) {
+	if got := truncateStatus("short intent", 40); got != "short intent" {
+		t.Fatalf("short intent altered: %q", got)
+	}
+	long := strings.Repeat("x", 39) + "yz"
+	got := truncateStatus(long, 40)
+	if got != strings.Repeat("x", 39)+"…" {
+		t.Fatalf("long intent = %q", got)
+	}
+	if len([]rune(got)) != 40 {
+		t.Fatalf("truncated length = %d runes", len([]rune(got)))
+	}
+}
+
 func TestRunStatuslineReportsDaemonOffline(t *testing.T) {
+	restoreWorkingDir(t)
 	t.Setenv("PANE_SOCKET_PATH", filepath.Join(t.TempDir(), "missing.sock"))
 	var out bytes.Buffer
 	input := `{"session_id":"abc","cwd":"` + t.TempDir() + `"}`
@@ -136,6 +166,7 @@ func TestRunHookStopAllowsStopWhenLoopGuardActive(t *testing.T) {
 }
 
 func TestRunHookSessionStartSilentWhenDaemonDown(t *testing.T) {
+	restoreWorkingDir(t)
 	t.Setenv("PANE_SOCKET_PATH", filepath.Join(t.TempDir(), "missing.sock"))
 	var out bytes.Buffer
 	input := agentHookInput{SessionID: "abc", CWD: t.TempDir()}

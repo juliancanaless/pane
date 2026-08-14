@@ -365,11 +365,13 @@ by the statusline and UserPromptSubmit) and `AgentMessages` (renders and marks
 delivered the queued inbox, used by the Stop hook to block idling until the
 agent replies — delivery marks messages read, so the next stop passes).
 
-On message send/reply the daemon calls `wakeTarget`: if the recipient is bound
-to an agent session and sits in a tmux pane, it nudges the pane with
-`tmux send-keys "pane inbox"` (30s per-pane debounce, `PANE_WAKE=off` to
-disable). There is no supported input-injection path for idle interactive
-sessions outside tmux.
+On message send/reply the daemon calls `wakeTarget`: if the recipient is
+bound to an agent session and sits in an addressable multiplexer pane, it
+types `pane inbox` into that pane — `cmux send --surface`, `zellij action
+write-chars --pane-id` (needs the session name recorded in the pane id), or
+`tmux send-keys` (30s per-pane debounce, `PANE_WAKE=off` to disable). There
+is no supported input-injection path for idle interactive sessions in a
+plain terminal.
 
 ## Design rules for future agents
 

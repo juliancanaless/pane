@@ -204,10 +204,11 @@ A: Run pane setup --claude once. It wires Claude Code user settings with a
    and unread messages at the bottom of the Claude UI.
 
 Q: Do incoming messages wake an idle Claude session?
-A: Only in tmux panes, where the daemon nudges the pane by typing pane inbox
-   (disable with PANE_WAKE=off). Elsewhere an idle agent sees messages at
-   its next turn; a busy agent is always stopped from going idle until it
-   replies, and the statusline always shows the unread count.
+A: In cmux, zellij, and tmux panes the daemon nudges the recipient's pane by
+   typing pane inbox into it (disable with PANE_WAKE=off). In a plain
+   terminal an idle agent sees messages at its next turn; a busy agent is
+   always stopped from going idle until it replies, and the statusline
+   always shows the unread count.
 `
 
 const docsLinks = `Pane online docs

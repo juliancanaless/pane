@@ -101,7 +101,7 @@ Environment overrides:
   PANE_PARENT_SESSION_ID            Link newly initialized session to a parent
   PANE_TTY                          Terminal device for pane identity (exported by shell hook;
                                     lets hook/statusline subprocesses find their session)
-  PANE_WAKE                         Set to "off" to disable waking idle agents in tmux panes
+  PANE_WAKE                         Set to "off" to disable waking idle agents in cmux/zellij/tmux panes
 `
 
 func Run(args []string, stdout, stderr io.Writer) error {

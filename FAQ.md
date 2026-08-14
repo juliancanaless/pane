@@ -62,9 +62,10 @@ Pane sessions are tied to terminal pane identity, not the agent process.
 Identity priority:
 
 1. `PANE_PANE_ID` override
-2. Zellij pane ID
-3. tmux pane ID
-4. TTY fallback
+2. cmux surface ID
+3. Zellij session + pane ID
+4. tmux pane ID
+5. TTY fallback
 
 This lets a replacement agent in the same pane resume the pane's context unless the old session was closed.
 
@@ -311,11 +312,12 @@ Run `pane setup --claude` once. It installs:
 
 ## Do incoming pane messages wake an idle Claude Code session?
 
-Inside tmux, yes: the daemon nudges the target pane by typing `pane inbox`
-into it (disable with `PANE_WAKE=off`). Outside tmux there is no supported way
-to inject input into an idle interactive Claude session, so messages surface
-at the next turn instead — and an agent that is mid-task is always stopped
-from going idle until it replies. The statusline unread counter updates
+Inside a multiplexer pane — cmux, zellij, or tmux — yes: the daemon nudges
+the recipient's pane by typing `pane inbox` into it (disable with
+`PANE_WAKE=off`). In a plain terminal there is no supported way to inject
+input into an idle interactive Claude session, so messages surface at the
+next turn instead — and an agent that is mid-task is always stopped from
+going idle until it replies. The statusline unread counter updates
 regardless.
 
 ## How do I uninstall Pane?

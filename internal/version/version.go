@@ -8,7 +8,7 @@ import (
 // Version is the pane release version, bumped as part of each release commit.
 // The daemon stamps it on every response so the CLI can detect a stale daemon
 // left running by a previous install and restart it with the new binary.
-const Version = "0.1.6"
+const Version = "0.1.7"
 
 // IsOlder reports whether candidate is an older release than reference.
 // An empty or unparseable candidate is treated as older: daemons predating

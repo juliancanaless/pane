@@ -175,6 +175,18 @@ const (
 	ansiReset  = "\x1b[0m"
 )
 
+// statuslineIntentMax keeps long intents from crowding out the rest of the
+// statusline; the full intent is always available via pane status.
+const statuslineIntentMax = 40
+
+func truncateStatus(text string, max int) string {
+	runes := []rune(text)
+	if len(runes) <= max {
+		return text
+	}
+	return string(runes[:max-1]) + "…"
+}
+
 // runStatusline renders the one-line Pane status Claude Code shows at the
 // bottom of the UI: session identity, current intent, and unread messages.
 func runStatusline(args []string, stdin io.Reader, stdout io.Writer) error {
@@ -205,7 +217,7 @@ func runStatusline(args []string, stdin io.Reader, stdout io.Writer) error {
 	if intent == "" {
 		intent = "no intent set"
 	}
-	line := fmt.Sprintf("pane %s · %s", identity, intent)
+	line := fmt.Sprintf("pane %s · %s", identity, truncateStatus(intent, statuslineIntentMax))
 	if payloadString(response, "repo_id") == "" {
 		line += " · no-git"
 	}
