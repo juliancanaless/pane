@@ -31,6 +31,47 @@ func TestSessionStorePersistsRepoIdentity(t *testing.T) {
 	}
 }
 
+func TestSessionStoreFindsByAgentSession(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
+	if err != nil {
+		t.Fatalf("Open returned error: %v", err)
+	}
+	defer db.Close()
+
+	store := NewSessionStore(db)
+	ctx := context.Background()
+	value := session.Session{ID: "session-a", PaneID: "pane-a", WorkspaceRoot: "/workspace-a", StartedAt: 1, LastSeenAt: 1, Status: session.StatusActive, AgentSessionID: "claude-abc"}
+	if err := store.Save(ctx, value); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	got, err := store.FindByAgentSession(ctx, "claude-abc")
+	if err != nil {
+		t.Fatalf("FindByAgentSession returned error: %v", err)
+	}
+	if got.ID != "session-a" || got.AgentSessionID != "claude-abc" {
+		t.Fatalf("got session %q agent %q", got.ID, got.AgentSessionID)
+	}
+
+	// A save without an agent id must not clear the binding.
+	value.AgentSessionID = ""
+	value.LastSeenAt = 2
+	if err := store.Save(ctx, value); err != nil {
+		t.Fatalf("second Save returned error: %v", err)
+	}
+	got, err = store.FindByAgentSession(ctx, "claude-abc")
+	if err != nil {
+		t.Fatalf("FindByAgentSession after re-save returned error: %v", err)
+	}
+	if got.ID != "session-a" {
+		t.Fatalf("binding lost after agent-less save; got %q", got.ID)
+	}
+
+	if _, err := store.FindByAgentSession(ctx, "missing"); err != session.ErrNotFound {
+		t.Fatalf("expected ErrNotFound for unknown agent session, got %v", err)
+	}
+}
+
 func TestSessionStoreListsActiveAllAcrossWorkspaces(t *testing.T) {
 	db, err := Open(filepath.Join(t.TempDir(), "pane.db"))
 	if err != nil {

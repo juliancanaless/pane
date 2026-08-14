@@ -242,6 +242,10 @@ func (d *Daemon) dispatch(request protocol.Request, requestStop func()) protocol
 		return d.handleStateList(request)
 	case protocol.RequestStateDelete:
 		return d.handleStateDelete(request)
+	case protocol.RequestAgentContext:
+		return d.handleAgentContext(request)
+	case protocol.RequestAgentMessages:
+		return d.handleAgentMessages(request)
 	default:
 		return protocol.Failure(fmt.Sprintf("unsupported request type %q", request.Type))
 	}
@@ -257,6 +261,7 @@ func (d *Daemon) handleSessionInit(request protocol.Request) protocol.Response {
 		RepoID:          payloadString(request, "repo_id"),
 		GitCommonDir:    payloadString(request, "git_common_dir"),
 		ParentSessionID: payloadString(request, "parent_session_id"),
+		AgentSessionID:  payloadString(request, "agent_session_id"),
 	}
 	result, err := d.manager.Init(context.Background(), input)
 	if err != nil {
@@ -279,6 +284,7 @@ func (d *Daemon) handleSessionHeartbeat(request protocol.Request) protocol.Respo
 		GitCommonDir:    payloadString(request, "git_common_dir"),
 		ParentSessionID: payloadString(request, "parent_session_id"),
 		NoCreate:        payloadBool(request, "no_create"),
+		AgentSessionID:  payloadString(request, "agent_session_id"),
 	}
 	result, err := d.manager.Heartbeat(context.Background(), input)
 	if err != nil {
@@ -1076,7 +1082,77 @@ func (d *Daemon) handleMessageSend(request protocol.Request) protocol.Response {
 	if err := d.messageStore.Save(context.Background(), message); err != nil {
 		return protocol.Failure(err.Error())
 	}
+	go wakeTarget(target)
 	return protocol.Success(map[string]any{"message_id": message.ID, "thread_id": message.ThreadID, "to_session": message.ToSession})
+}
+
+// resolveAgentSession finds the caller's session for agent hook/statusline
+// requests: by the bound agent session id first, then by pane/workspace like
+// every other handler.
+func (d *Daemon) resolveAgentSession(request protocol.Request) (session.Session, error) {
+	if agentID := payloadString(request, "agent_session_id"); agentID != "" {
+		current, err := d.manager.FindByAgentSession(context.Background(), agentID)
+		if err == nil {
+			return current, nil
+		}
+		if !errors.Is(err, session.ErrNotFound) {
+			return session.Session{}, err
+		}
+	}
+	return d.manager.Status(context.Background(), payloadString(request, "pane_id"), payloadString(request, "workspace_root"))
+}
+
+func (d *Daemon) handleAgentContext(request protocol.Request) protocol.Response {
+	current, err := d.resolveAgentSession(request)
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Success(map[string]any{"found": false})
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	unread, err := d.messageStore.CountQueuedForSession(context.Background(), current.ID)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{
+		"found":          true,
+		"session_id":     current.ID,
+		"short_id":       session.ShortID(current.ID),
+		"name":           current.Name,
+		"intent":         current.LastIntent,
+		"workspace_root": current.WorkspaceRoot,
+		"branch":         current.Branch,
+		"repo_id":        current.RepoID,
+		"status":         string(current.Status),
+		"unread":         unread,
+	})
+}
+
+func (d *Daemon) handleAgentMessages(request protocol.Request) protocol.Response {
+	current, err := d.resolveAgentSession(request)
+	if errors.Is(err, session.ErrNotFound) {
+		return protocol.Success(map[string]any{"found": false, "count": 0})
+	}
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	items, err := d.messageStore.ListQueuedForSession(context.Background(), current.ID)
+	if err != nil {
+		return protocol.Failure(err.Error())
+	}
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	if err := d.messageStore.MarkDelivered(context.Background(), ids, time.Now().Unix()); err != nil {
+		return protocol.Failure(err.Error())
+	}
+	return protocol.Success(map[string]any{
+		"found":      true,
+		"session_id": current.ID,
+		"text":       messages.RenderInbox(items, time.Now()),
+		"count":      len(items),
+	})
 }
 
 func (d *Daemon) handleMessageList(request protocol.Request) protocol.Response {
@@ -1131,6 +1207,9 @@ func (d *Daemon) handleMessageReply(request protocol.Request) protocol.Response 
 	}
 	if err := d.messageStore.Save(context.Background(), reply); err != nil {
 		return protocol.Failure(err.Error())
+	}
+	if recipient, findErr := d.manager.FindByID(context.Background(), reply.ToSession); findErr == nil {
+		go wakeTarget(recipient)
 	}
 	return protocol.Success(map[string]any{"message_id": reply.ID, "thread_id": reply.ThreadID, "to_session": reply.ToSession})
 }

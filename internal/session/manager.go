@@ -17,6 +17,7 @@ type Store interface {
 	Save(context.Context, Session) error
 	FindResumable(context.Context, string, string, string, int64) (Session, error)
 	FindByPaneWorkspace(context.Context, string, string) (Session, error)
+	FindByAgentSession(context.Context, string) (Session, error)
 	FindByID(context.Context, string) (Session, error)
 	FindByName(context.Context, string, string) (Session, error)
 	ListActiveByWorkspace(context.Context, string) ([]Session, error)
@@ -49,6 +50,10 @@ type InitInput struct {
 	// heartbeats outside git repositories set it so wandering through
 	// arbitrary directories never mints sessions; explicit `pane init` does.
 	NoCreate bool
+	// AgentSessionID binds the pane session to the host agent's own session id
+	// (for example Claude Code's session_id). Empty means leave any existing
+	// binding untouched.
+	AgentSessionID string
 }
 
 type InitResult struct {
@@ -72,6 +77,9 @@ func (m Manager) Init(ctx context.Context, input InitInput) (InitResult, error) 
 		current.GitCommonDir = input.GitCommonDir
 		current.LastSeenAt = now
 		current.Status = StatusActive
+		if input.AgentSessionID != "" {
+			current.AgentSessionID = input.AgentSessionID
+		}
 		return InitResult{Session: current, Resumed: true}, m.store.Save(ctx, current)
 	}
 	if !errors.Is(err, ErrNotFound) {
@@ -84,19 +92,20 @@ func (m Manager) Init(ctx context.Context, input InitInput) (InitResult, error) 
 	}
 
 	created := Session{
-		ID:            newID(),
-		PaneID:        input.PaneID,
-		TTY:           input.TTY,
-		WorkspaceRoot: input.WorkspaceRoot,
-		CWD:           input.CWD,
-		Branch:        input.Branch,
-		RepoID:        input.RepoID,
-		GitCommonDir:  input.GitCommonDir,
-		LastIntent:    parent.LastIntent,
-		StartedAt:     now,
-		LastSeenAt:    now,
-		Status:        StatusActive,
-		ParentID:      parent.ID,
+		ID:             newID(),
+		PaneID:         input.PaneID,
+		TTY:            input.TTY,
+		WorkspaceRoot:  input.WorkspaceRoot,
+		CWD:            input.CWD,
+		Branch:         input.Branch,
+		RepoID:         input.RepoID,
+		GitCommonDir:   input.GitCommonDir,
+		LastIntent:     parent.LastIntent,
+		StartedAt:      now,
+		LastSeenAt:     now,
+		Status:         StatusActive,
+		ParentID:       parent.ID,
+		AgentSessionID: input.AgentSessionID,
 	}
 	return InitResult{Session: created}, m.store.Save(ctx, created)
 }
@@ -124,7 +133,21 @@ func (m Manager) Heartbeat(ctx context.Context, input InitInput) (InitResult, er
 	current.GitCommonDir = input.GitCommonDir
 	current.LastSeenAt = now
 	current.Status = StatusActive
+	if input.AgentSessionID != "" {
+		current.AgentSessionID = input.AgentSessionID
+	}
 	return InitResult{Session: current, Resumed: true}, m.store.Save(ctx, current)
+}
+
+// FindByAgentSession resolves the pane session bound to a host agent session
+// id (for example Claude Code's session_id from a hook payload).
+func (m Manager) FindByAgentSession(ctx context.Context, agentSessionID string) (Session, error) {
+	return m.store.FindByAgentSession(ctx, agentSessionID)
+}
+
+// FindByID returns the session with the exact id.
+func (m Manager) FindByID(ctx context.Context, sessionID string) (Session, error) {
+	return m.store.FindByID(ctx, sessionID)
 }
 
 func (m Manager) ListActive(ctx context.Context, workspaceRoot string) ([]Session, error) {

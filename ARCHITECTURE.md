@@ -349,6 +349,28 @@ Done means Pane is infrastructure you forget about.
 
 `AGENTS.md` gives coding agents the operating contract for this repo.
 
+### Claude Code integration: `internal/cli/claude.go`, `internal/daemon/wake.go`
+
+`pane setup --claude` additively edits `~/.claude/settings.json` with a
+statusline (`pane statusline`) and three hooks (`pane hook session-start`,
+`pane hook stop`, `pane hook user-prompt-submit`). Hook and statusline
+processes read Claude's JSON on stdin and have no tty, so pane identity is
+recovered through a chain: the `tty` command, then `PANE_TTY` (exported by the
+shell hook), then a walk up the process tree. Each hook call also carries the
+Claude `session_id`, which the daemon binds to the pane session
+(`sessions.agent_session_id`) so later hook calls resolve the session directly.
+
+Two protocol requests back this: `AgentContext` (identity + unread count, used
+by the statusline and UserPromptSubmit) and `AgentMessages` (renders and marks
+delivered the queued inbox, used by the Stop hook to block idling until the
+agent replies — delivery marks messages read, so the next stop passes).
+
+On message send/reply the daemon calls `wakeTarget`: if the recipient is bound
+to an agent session and sits in a tmux pane, it nudges the pane with
+`tmux send-keys "pane inbox"` (30s per-pane debounce, `PANE_WAKE=off` to
+disable). There is no supported input-injection path for idle interactive
+sessions outside tmux.
+
 ## Design rules for future agents
 
 When modifying Pane, preserve these rules:

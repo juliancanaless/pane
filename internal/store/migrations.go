@@ -123,4 +123,6 @@ var additiveMigrations = []string{
 	`ALTER TABLE sessions ADD COLUMN repo_id TEXT`,
 	`ALTER TABLE sessions ADD COLUMN git_common_dir TEXT`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_repo_seen ON sessions(repo_id, last_seen_at)`,
+	`ALTER TABLE sessions ADD COLUMN agent_session_id TEXT`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_agent ON sessions(agent_session_id, last_seen_at)`,
 }

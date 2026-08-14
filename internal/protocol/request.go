@@ -25,6 +25,8 @@ const (
 	RequestStateList        RequestType = "StateList"
 	RequestStateDelete      RequestType = "StateDelete"
 	RequestSessionName      RequestType = "SessionName"
+	RequestAgentContext     RequestType = "AgentContext"
+	RequestAgentMessages    RequestType = "AgentMessages"
 )
 
 type Request struct {

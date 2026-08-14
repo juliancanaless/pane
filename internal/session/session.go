@@ -38,4 +38,8 @@ type Session struct {
 	Status        Status
 	ParentID      string
 	Name          string
+	// AgentSessionID binds this pane session to a host agent's own session id
+	// (for example the Claude Code session_id delivered to hooks), so hook and
+	// statusline processes without a usable tty can still find their session.
+	AgentSessionID string
 }

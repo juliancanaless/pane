@@ -16,13 +16,13 @@ func NewSessionStore(db *sql.DB) SessionStore {
 	return SessionStore{db: db}
 }
 
-const sessionColumns = `session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, COALESCE(name, ''), COALESCE(repo_id, ''), COALESCE(git_common_dir, '')`
+const sessionColumns = `session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, COALESCE(name, ''), COALESCE(repo_id, ''), COALESCE(git_common_dir, ''), COALESCE(agent_session_id, '')`
 
 func (s SessionStore) Save(ctx context.Context, value session.Session) error {
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO sessions (
-    session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, name, repo_id, git_common_dir
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    session_id, pane_id, tty, workspace_root, cwd, branch, last_intent, started_at, last_seen_at, status, parent_session_id, name, repo_id, git_common_dir, agent_session_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(session_id) DO UPDATE SET
     pane_id = excluded.pane_id,
     tty = excluded.tty,
@@ -35,8 +35,9 @@ ON CONFLICT(session_id) DO UPDATE SET
     parent_session_id = excluded.parent_session_id,
     name = COALESCE(excluded.name, sessions.name),
     repo_id = excluded.repo_id,
-    git_common_dir = excluded.git_common_dir
-`, value.ID, value.PaneID, value.TTY, value.WorkspaceRoot, value.CWD, value.Branch, value.LastIntent, value.StartedAt, value.LastSeenAt, string(value.Status), nullableString(value.ParentID), nullableString(value.Name), nullableString(value.RepoID), nullableString(value.GitCommonDir))
+    git_common_dir = excluded.git_common_dir,
+    agent_session_id = COALESCE(excluded.agent_session_id, sessions.agent_session_id)
+`, value.ID, value.PaneID, value.TTY, value.WorkspaceRoot, value.CWD, value.Branch, value.LastIntent, value.StartedAt, value.LastSeenAt, string(value.Status), nullableString(value.ParentID), nullableString(value.Name), nullableString(value.RepoID), nullableString(value.GitCommonDir), nullableString(value.AgentSessionID))
 	return err
 }
 
@@ -65,6 +66,18 @@ WHERE pane_id = ?
 ORDER BY last_seen_at DESC
 LIMIT 1
 `, paneID, workspaceRoot)
+	return scanSession(row)
+}
+
+func (s SessionStore) FindByAgentSession(ctx context.Context, agentSessionID string) (session.Session, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT `+sessionColumns+`
+FROM sessions
+WHERE agent_session_id = ?
+  AND status IN ('active', 'idle')
+ORDER BY last_seen_at DESC
+LIMIT 1
+`, agentSessionID)
 	return scanSession(row)
 }
 
@@ -271,6 +284,7 @@ func scanSession(row scanner) (session.Session, error) {
 		&value.Name,
 		&value.RepoID,
 		&value.GitCommonDir,
+		&value.AgentSessionID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return session.Session{}, session.ErrNotFound

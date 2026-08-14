@@ -1,6 +1,6 @@
 # Install Pane
 
-Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.5`, with Homebrew binary assets for Intel and Apple Silicon Macs.
+Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.6`, with Homebrew binary assets for Intel and Apple Silicon Macs.
 
 ## Option 1: Homebrew tap
 
@@ -44,6 +44,21 @@ If you do not want setup to edit your shell rc file or start the daemon automati
 ./bin/pane setup --print-shell
 ```
 
+## Claude Code integration
+
+If you use Claude Code, run:
+
+```bash
+pane setup --claude
+```
+
+This additively wires `~/.claude/settings.json` with a Pane statusline
+(session, intent, unread messages at the bottom of the UI) and three hooks:
+SessionStart (pane identity survives startup, resume, and compaction), Stop
+(unread pane messages are delivered before the agent goes idle), and
+UserPromptSubmit (unread count surfaces each turn). Existing hooks and a
+custom statusline are left untouched; re-running is safe.
+
 ## Upgrade
 
 ```bash
@@ -76,6 +91,7 @@ pane history --format work-log
 - `~/.pane/shims/git`
 - a managed shell hook block in `.zshrc` or `.bashrc`
 - a background Pane daemon
+- with `--claude`: Pane hooks and statusline in `~/.claude/settings.json`
 
 Run `pane doctor` to see the paths and health checks.
 

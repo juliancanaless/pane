@@ -52,11 +52,16 @@ Usage:
 
   pane daemon health                Check daemon health over the Unix socket
   pane daemon stop                  Ask the daemon to stop cleanly
-  pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell]
+  pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell] [--claude]
                                     Install local binary, integrations, and start daemon
+                                    (--claude also wires Claude Code hooks + statusline)
   pane doctor                       Diagnose local Pane installation and daemon health
   pane version                      Print the pane version
   pane docs [topic]                 Built-in quickstart, agent guide, FAQ, and links
+
+  pane hook <session-start|stop|user-prompt-submit>
+                                    Claude Code hook entry points (read hook JSON on stdin)
+  pane statusline                   Render Pane status for the Claude Code statusline
 
   pane git <git-args...>            Run git through Pane's shared-state preflight checks
 
@@ -94,6 +99,9 @@ Environment overrides:
   PANE_LOG_PATH or PANE_LOG         Use a custom daemon log path
   PANE_PANE_ID                      Override detected terminal-pane identity
   PANE_PARENT_SESSION_ID            Link newly initialized session to a parent
+  PANE_TTY                          Terminal device for pane identity (exported by shell hook;
+                                    lets hook/statusline subprocesses find their session)
+  PANE_WAKE                         Set to "off" to disable waking idle agents in tmux panes
 `
 
 func Run(args []string, stdout, stderr io.Writer) error {
@@ -154,6 +162,10 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return runState(args[1:], stdout)
 	case "analyze":
 		return runAnalyze(args[1:], stdout)
+	case "hook":
+		return runHook(args[1:], os.Stdin, stdout)
+	case "statusline":
+		return runStatusline(args[1:], os.Stdin, stdout)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}

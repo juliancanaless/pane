@@ -12,7 +12,7 @@ Pane is not an orchestrator. It does not assign tasks, schedule agents, or contr
 
 ## Install
 
-Pane v0.1.5 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
+Pane v0.1.6 can be installed with the Homebrew tap or built from source. Homebrew binary assets are available for Intel and Apple Silicon Macs. See [`INSTALL.md`](INSTALL.md).
 
 ```bash
 brew tap juliancanaless/pane
@@ -109,6 +109,20 @@ pane reply <message-id> "done with that file"
 ```
 
 Agents can coordinate directly without the human copying messages between panes.
+
+### Claude Code integration
+
+```bash
+pane setup --claude
+```
+
+One command wires Pane into Claude Code's user settings, so Claude sessions stay coordinated without the human relaying anything:
+
+- **Session identity survives compaction.** A SessionStart hook registers the pane session and re-injects its identity after startup, resume, and every context compaction — no more lost or duplicated pane sessions.
+- **Session visible in the UI.** A statusline at the bottom of Claude Code shows the pane session name, current intent, and unread message count.
+- **Messages get answered.** A Stop hook delivers unread pane messages before the agent goes idle, so it replies instead of leaving peers hanging; a UserPromptSubmit hook surfaces waiting messages at the start of each turn. Agents idling in tmux panes are additionally nudged awake on delivery (`PANE_WAKE=off` disables the nudge).
+
+The install is additive and idempotent: existing hooks and a custom statusline are left untouched.
 
 ### Git guardrails
 
@@ -214,11 +228,13 @@ Implemented today:
 - namespaced and global agent state
 - work-log history output
 - `pane setup`, `pane doctor`, Homebrew tap, and macOS Intel/Apple Silicon release assets
+- Claude Code integration: SessionStart/Stop/UserPromptSubmit hooks, statusline, and `pane setup --claude`
 - macOS/Linux CI with daemon smoke tests
 
 Known limitations:
 
 - semantic overlap is first-pass import/package-level, not full symbol-reference/signature-aware analysis
+- waking a fully idle Claude Code session on message arrival only works inside tmux; elsewhere messages surface on the agent's next turn or before it goes idle
 - Linux binary release assets are not published yet, though source CI passes on Linux
 - storage retention is basic; old data is hidden/summarized in views but not aggressively pruned
 - Pane needs more multi-day dogfood with real teams and real concurrent agent workflows

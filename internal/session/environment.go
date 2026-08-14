@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -55,10 +56,43 @@ func DetectEnvironment() (Environment, error) {
 
 func detectTTY() string {
 	output, err := exec.Command("tty").Output()
-	if err != nil {
-		return ""
+	if err == nil {
+		return strings.TrimSpace(string(output))
 	}
-	return strings.TrimSpace(string(output))
+	if value := os.Getenv("PANE_TTY"); value != "" {
+		return value
+	}
+	return ancestorTTY()
+}
+
+// ancestorTTY recovers the controlling terminal for processes whose stdin is
+// a pipe — agent hook and statusline commands — by walking up the process
+// tree until an ancestor (usually the agent itself) reports a tty.
+func ancestorTTY() string {
+	pid := os.Getppid()
+	for depth := 0; depth < 8 && pid > 1; depth++ {
+		output, err := exec.Command("ps", "-o", "tty=", "-p", strconv.Itoa(pid)).Output()
+		if err != nil {
+			return ""
+		}
+		tty := strings.TrimSpace(string(output))
+		if tty != "" && tty != "?" && tty != "??" {
+			if !strings.HasPrefix(tty, "/") {
+				tty = "/dev/" + tty
+			}
+			return tty
+		}
+		output, err = exec.Command("ps", "-o", "ppid=", "-p", strconv.Itoa(pid)).Output()
+		if err != nil {
+			return ""
+		}
+		parent, err := strconv.Atoi(strings.TrimSpace(string(output)))
+		if err != nil {
+			return ""
+		}
+		pid = parent
+	}
+	return ""
 }
 
 func gitOutput(args ...string) (string, error) {

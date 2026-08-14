@@ -68,6 +68,11 @@ Identity priority:
 
 This lets a replacement agent in the same pane resume the pane's context unless the old session was closed.
 
+Claude Code sessions get a second identity: with the integration installed
+(`pane setup --claude`), the pane session is also bound to the Claude session
+id, so Pane's hooks and statusline find the right session even from
+subprocesses that have no terminal of their own.
+
 ## Is Pane an orchestrator?
 
 No.
@@ -120,6 +125,10 @@ pane setup --no-shim
 pane setup --no-daemon
 pane setup --print-shell
 ```
+
+With `--claude` it also wires Claude Code hooks and a statusline into
+`~/.claude/settings.json` (additive and idempotent — existing hooks and a
+custom statusline are preserved).
 
 ## What does `pane doctor` check?
 
@@ -285,6 +294,29 @@ Then manually add the printed hook if you want it.
 ## Is Pane local or cloud-based?
 
 Pane is local-first. There is no remote service. State is stored locally in SQLite and accessed through a local Unix socket daemon.
+
+## How does Pane integrate with Claude Code?
+
+Run `pane setup --claude` once. It installs:
+
+- a **SessionStart hook** — registers/resumes the pane session and injects its
+  identity into the agent's context on startup, resume, `/clear`, and after
+  every context compaction. Compaction no longer loses or tangles pane sessions.
+- a **statusline** — the bottom of the Claude Code UI shows the pane session
+  name, current intent, and unread message count at all times.
+- a **Stop hook** — if pane messages arrived while the agent worked, they are
+  delivered before it goes idle so it replies first.
+- a **UserPromptSubmit hook** — waiting messages are surfaced at the start of
+  each new turn.
+
+## Do incoming pane messages wake an idle Claude Code session?
+
+Inside tmux, yes: the daemon nudges the target pane by typing `pane inbox`
+into it (disable with `PANE_WAKE=off`). Outside tmux there is no supported way
+to inject input into an idle interactive Claude session, so messages surface
+at the next turn instead — and an agent that is mid-task is always stopped
+from going idle until it replies. The statusline unread counter updates
+regardless.
 
 ## How do I uninstall Pane?
 

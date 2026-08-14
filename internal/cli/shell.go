@@ -37,6 +37,9 @@ func runShellInit(args []string, stdout io.Writer) error {
 const shellInitTemplate = `# Pane shell integration
 export PANE_BIN=%s
 export PANE_LOG=${PANE_LOG:-%s}
+if [ -z "$PANE_TTY" ]; then
+  PANE_TTY="$(tty 2>/dev/null)" && export PANE_TTY || unset PANE_TTY
+fi
 
 _pane_start_daemon() {
   "$PANE_BIN" daemon health >/dev/null 2>&1 && return 0
@@ -81,10 +84,11 @@ const shellHookMarkerStart = "# >>> pane shell integration >>>"
 const shellHookMarkerEnd = "# <<< pane shell integration <<<"
 
 type setupOptions struct {
-	InstallShell bool
-	InstallShim  bool
-	StartDaemon  bool
-	PrintShell   bool
+	InstallShell  bool
+	InstallShim   bool
+	StartDaemon   bool
+	PrintShell    bool
+	InstallClaude bool
 }
 
 func parseSetupOptions(args []string) (setupOptions, error) {
@@ -100,8 +104,10 @@ func parseSetupOptions(args []string) (setupOptions, error) {
 		case "--print-shell":
 			options.PrintShell = true
 			options.InstallShell = false
+		case "--claude":
+			options.InstallClaude = true
 		default:
-			return setupOptions{}, errors.New("usage: pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell]")
+			return setupOptions{}, errors.New("usage: pane setup [--no-shell] [--no-shim] [--no-daemon] [--print-shell] [--claude]")
 		}
 	}
 	return options, nil
@@ -166,6 +172,12 @@ func runSetup(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "installed shell hook: %s\n", rcPath)
 	} else {
 		_, _ = fmt.Fprintf(stdout, "skipped shell hook\n")
+	}
+
+	if options.InstallClaude {
+		if err := installClaudeIntegration(stdout, installedBin); err != nil {
+			return err
+		}
 	}
 
 	if !options.StartDaemon {

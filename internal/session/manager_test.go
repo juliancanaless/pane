@@ -35,6 +35,13 @@ func (f *fakeStore) FindByPaneWorkspace(context.Context, string, string) (Sessio
 	return f.status, nil
 }
 
+func (f *fakeStore) FindByAgentSession(_ context.Context, agentSessionID string) (Session, error) {
+	if f.status.AgentSessionID == agentSessionID && agentSessionID != "" {
+		return f.status, nil
+	}
+	return Session{}, ErrNotFound
+}
+
 func (f *fakeStore) FindByID(_ context.Context, sessionID string) (Session, error) {
 	if f.byID.ID == sessionID {
 		return f.byID, nil

@@ -86,6 +86,13 @@ intent, and state work normally; the workspace root is the current directory
 (or PANE_WORKSPACE_ROOT). There is no branch, and git guardrails and --repo
 scope are off. Sessions there are only created by an explicit pane init,
 never by shell-hook heartbeats.
+
+Claude Code sessions:
+If Pane's Claude Code integration is installed (pane setup --claude), your
+pane session is registered automatically at startup and re-announced after
+compaction — when you see a [Pane] identity block in your context, that
+session is already yours; do not run pane init again. Unread pane messages
+are delivered to you before you go idle; reply with pane reply <message-id>.
 `
 
 const docsCommands = `Pane common commands
@@ -126,9 +133,16 @@ Workers:
 
 Setup/diagnostics:
   pane setup
+  pane setup --claude
   pane setup --no-shell --no-daemon
   pane doctor
   pane docs [quickstart|agents|commands|faq|links]
+
+Claude Code integration (installed by pane setup --claude):
+  pane hook session-start           SessionStart hook: re-inject pane identity (survives compaction)
+  pane hook stop                    Stop hook: deliver unread messages before the agent goes idle
+  pane hook user-prompt-submit      Surface unread count at the start of each turn
+  pane statusline                   One-line session/intent/unread status for the Claude UI
 `
 
 const docsFAQ = `Pane FAQ
@@ -180,6 +194,20 @@ Q: How do upgrades reach the background daemon?
 A: Automatically. Any pane command that reaches a daemon older than the CLI
    restarts it with the current binary. After brew upgrade pane, run
    pane setup to refresh the ~/.pane/bin copies.
+
+Q: How does Pane integrate with Claude Code?
+A: Run pane setup --claude once. It wires Claude Code user settings with a
+   SessionStart hook (re-injects the pane session identity after startup,
+   resume, and every compaction), a Stop hook (delivers unread pane messages
+   so the agent replies before going idle), a UserPromptSubmit hook (surfaces
+   the unread count each turn), and a statusline showing session, intent,
+   and unread messages at the bottom of the Claude UI.
+
+Q: Do incoming messages wake an idle Claude session?
+A: Only in tmux panes, where the daemon nudges the pane by typing pane inbox
+   (disable with PANE_WAKE=off). Elsewhere an idle agent sees messages at
+   its next turn; a busy agent is always stopped from going idle until it
+   replies, and the statusline always shows the unread count.
 `
 
 const docsLinks = `Pane online docs
