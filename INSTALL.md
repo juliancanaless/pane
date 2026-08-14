@@ -1,6 +1,6 @@
 # Install Pane
 
-Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.7`, with Homebrew binary assets for Intel and Apple Silicon Macs.
+Pane is currently distributed through a Homebrew tap or source build. The latest public release is `v0.1.8`, with Homebrew binary assets for Intel and Apple Silicon Macs.
 
 ## Option 1: Homebrew tap
 

@@ -31,14 +31,32 @@ func TestDetectPaneIDFallsBackToTTY(t *testing.T) {
 	}
 }
 
-func TestDetectPaneIDPrefersCmux(t *testing.T) {
+func TestDetectPaneIDUsesCmuxWithoutInnerMultiplexer(t *testing.T) {
 	clearMultiplexerEnv(t)
 	t.Setenv("CMUX_SURFACE_ID", "3D10F6CE")
-	t.Setenv("ZELLIJ_PANE_ID", "12")
-	t.Setenv("TMUX_PANE", "%1")
 
 	got := DetectPaneID("/dev/ttys001")
 	if got != "cmux:3D10F6CE" {
+		t.Fatalf("pane id = %q", got)
+	}
+}
+
+func TestDetectPaneIDPrefersInnerMultiplexerOverCmux(t *testing.T) {
+	// zellij panes inside one cmux surface all share CMUX_SURFACE_ID; the
+	// inner multiplexer is the real pane identity.
+	clearMultiplexerEnv(t)
+	t.Setenv("CMUX_SURFACE_ID", "3D10F6CE")
+	t.Setenv("ZELLIJ_PANE_ID", "12")
+	t.Setenv("ZELLIJ_SESSION_NAME", "control-center")
+
+	if got := DetectPaneID("/dev/ttys001"); got != "zellij:control-center:12" {
+		t.Fatalf("pane id = %q", got)
+	}
+
+	t.Setenv("ZELLIJ_PANE_ID", "")
+	t.Setenv("ZELLIJ_SESSION_NAME", "")
+	t.Setenv("TMUX_PANE", "%1")
+	if got := DetectPaneID("/dev/ttys001"); got != "tmux:%1" {
 		t.Fatalf("pane id = %q", got)
 	}
 }

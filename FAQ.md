@@ -62,9 +62,9 @@ Pane sessions are tied to terminal pane identity, not the agent process.
 Identity priority:
 
 1. `PANE_PANE_ID` override
-2. cmux surface ID
-3. Zellij session + pane ID
-4. tmux pane ID
+2. Zellij session + pane ID
+3. tmux pane ID
+4. cmux surface ID (only when no inner multiplexer is running in the surface)
 5. TTY fallback
 
 This lets a replacement agent in the same pane resume the pane's context unless the old session was closed.
