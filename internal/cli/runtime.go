@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juliancanalez/pane/internal/daemon"
@@ -11,17 +14,69 @@ import (
 	"github.com/juliancanalez/pane/internal/version"
 )
 
+const (
+	autostartStampName = "autostart-stamp"
+	autostartCooldown  = 10 * time.Second
+)
+
+// startDaemonBackground is a var so tests can substitute a recorder instead of
+// spawning a real daemon.
+var startDaemonBackground = daemon.StartBackground
+
 func sendDaemonRequest(request protocol.Request) (protocol.Response, error) {
 	socket, err := socketPath()
 	if err != nil {
 		return protocol.Response{}, err
 	}
-	response, err := daemon.Client{SocketPath: socket}.Send(request)
+	client := daemon.Client{SocketPath: socket}
+	response, err := client.Send(request)
 	if err != nil {
-		return protocol.Response{}, fmt.Errorf("Pane daemon is not running or is unreachable; start it with `pane daemon start`: %w", err)
+		// Agent tool calls kill their process group, which takes any daemon
+		// started inside one with them. Bringing it back here keeps every
+		// command working without the agent noticing the daemon was gone.
+		if !isConnectionError(err) || !autostartDaemon(socket, request.Type) {
+			return protocol.Response{}, daemonUnreachable(err)
+		}
+		if response, err = client.Send(request); err != nil {
+			return protocol.Response{}, daemonUnreachable(err)
+		}
 	}
 	maybeRestartStaleDaemon(socket, request.Type, response.DaemonVersion)
 	return response, nil
+}
+
+func daemonUnreachable(err error) error {
+	return fmt.Errorf("Pane daemon is not running or is unreachable; start it with `pane daemon start`: %w", err)
+}
+
+// isConnectionError reports whether nothing was listening on the socket. A
+// failure after the connection is up means a daemon is there but sick, and
+// starting another one would only trip its lock.
+func isConnectionError(err error) bool {
+	var opErr *net.OpError
+	return errors.As(err, &opErr) && opErr.Op == "dial"
+}
+
+// autostartDaemon spawns a detached daemon and reports whether the request is
+// worth retrying. The cooldown stamp is written before the attempt so a daemon
+// that cannot start is retried every 10 seconds rather than on every command.
+// The whole path stays silent: hooks and the statusline run through it.
+func autostartDaemon(socket string, requestType protocol.RequestType) bool {
+	if requestType == protocol.RequestDaemonStop || os.Getenv("PANE_NO_AUTOSTART") != "" {
+		return false
+	}
+	stamp := filepath.Join(filepath.Dir(socket), autostartStampName)
+	if info, err := os.Stat(stamp); err == nil && now().Sub(info.ModTime()) < autostartCooldown {
+		return false
+	}
+	if err := os.MkdirAll(filepath.Dir(stamp), 0o755); err != nil {
+		return false
+	}
+	if err := os.WriteFile(stamp, nil, 0o644); err != nil {
+		return false
+	}
+	log, _ := logPath()
+	return startDaemonBackground(socket, log) == nil
 }
 
 // maybeRestartStaleDaemon replaces a daemon running an older release than this
@@ -36,7 +91,8 @@ func maybeRestartStaleDaemon(socket string, requestType protocol.RequestType, da
 		daemonVersion = "pre-0.1.5"
 	}
 	fmt.Fprintf(os.Stderr, "[Pane] daemon (%s) is older than this CLI (%s); restarting daemon with the current binary\n", daemonVersion, version.Version)
-	if err := daemon.Restart(socket); err != nil {
+	log, _ := logPath()
+	if err := daemon.Restart(socket, log); err != nil {
 		fmt.Fprintf(os.Stderr, "[Pane] daemon restart failed: %v\n", err)
 	}
 }

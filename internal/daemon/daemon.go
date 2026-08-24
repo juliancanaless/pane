@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/juliancanalez/pane/internal/activity"
@@ -24,6 +26,10 @@ import (
 	"github.com/juliancanalez/pane/internal/summary"
 	"github.com/juliancanalez/pane/internal/version"
 )
+
+// signalNotify is a var so tests can drive the shutdown path without sending a
+// real signal to the test process.
+var signalNotify = signal.Notify
 
 type Config struct {
 	SocketPath string
@@ -89,7 +95,24 @@ func (d *Daemon) Run(ctx context.Context) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "daemon starting on %s\n", d.config.SocketPath)
+	fmt.Fprintf(os.Stderr, "daemon starting on %s (version %s, pid %d)\n", d.config.SocketPath, version.Version, os.Getpid())
+
+	stop := make(chan struct{})
+	var stopOnce sync.Once
+	requestStop := func() { stopOnce.Do(func() { close(stop) }) }
+
+	signals := make(chan os.Signal, 1)
+	signalNotify(signals, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer signal.Stop(signals)
+	go func() {
+		select {
+		case received := <-signals:
+			fmt.Fprintf(os.Stderr, "received signal %s; shutting down\n", received)
+			requestStop()
+		case <-stop:
+		}
+	}()
+
 	if d.config.DBPath != "" {
 		db, err := store.Open(d.config.DBPath)
 		if err != nil {
@@ -121,10 +144,6 @@ func (d *Daemon) Run(ctx context.Context) error {
 		_ = os.Remove(d.config.SocketPath)
 		d.removePIDFile()
 	}()
-
-	stop := make(chan struct{})
-	var stopOnce sync.Once
-	requestStop := func() { stopOnce.Do(func() { close(stop) }) }
 
 	go func() {
 		select {

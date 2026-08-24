@@ -29,7 +29,8 @@ It tracks pane-based sessions, remembers recent activity, routes context between
 sessions, and adds guardrails at high-risk moments.
 
 Usage:
-  pane daemon start [--background]   Start the local Pane shared-memory daemon
+  pane daemon start [--foreground]  Start the local Pane shared-memory daemon
+                                    (detached by default; --foreground blocks)
   pane daemon status                Show daemon process, socket, DB, and log paths
 
   pane init                         Register or resume this terminal pane as a Pane session
@@ -85,7 +86,9 @@ Usage:
   pane analyze index <path...>     Persist symbols and dependency edges in SQLite
   pane analyze dependents <target> Show files with dependency edges to a target/module/symbol
 
-Session and board commands require the daemon to be running.
+Session and board commands require the daemon to be running. A command that
+finds it down starts it detached and retries once, so a daemon killed with an
+agent's tool call comes back on its own.
 
 Pane works outside git repositories too: the workspace root falls back to the
 current directory (or PANE_WORKSPACE_ROOT), and git guardrails and --repo
@@ -97,6 +100,8 @@ Environment overrides:
   PANE_SOCKET_PATH                  Use a custom daemon socket path
   PANE_PID_PATH                     Use a custom daemon PID file path
   PANE_LOG_PATH or PANE_LOG         Use a custom daemon log path
+  PANE_NO_AUTOSTART                 Set to any value to stop commands from
+                                    auto-starting a missing daemon
   PANE_PANE_ID                      Override detected terminal-pane identity
   PANE_PARENT_SESSION_ID            Link newly initialized session to a parent
   PANE_TTY                          Terminal device for pane identity (exported by shell hook;
@@ -171,16 +176,28 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	}
 }
 
+// runDaemonForeground is a var so tests can assert which start path a flag
+// selects without launching a daemon.
+var runDaemonForeground = func(config daemon.Config) error {
+	return daemon.New(config).Run(context.Background())
+}
+
+const daemonUsage = "usage: pane daemon start [--foreground]|stop|health|status"
+
 func runDaemon(args []string, stdout io.Writer) error {
 	if len(args) < 1 {
-		return errors.New("usage: pane daemon start [--background]|stop|health|status")
+		return errors.New(daemonUsage)
 	}
 	subcmd := args[0]
-	background := false
+	foreground := false
 	for _, arg := range args[1:] {
-		if arg == "--background" || arg == "-b" {
-			background = true
-		} else {
+		switch arg {
+		case "--foreground", "-f":
+			foreground = true
+		case "--background", "-b":
+			// Backgrounding is the default now; the flag stays valid so shell
+			// hooks and scripts written against older releases keep working.
+		default:
 			return fmt.Errorf("unknown flag: %s", arg)
 		}
 	}
@@ -207,7 +224,7 @@ func runDaemon(args []string, stdout io.Writer) error {
 		if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
 			if version.IsOlder(response.DaemonVersion, version.Version) {
 				_, _ = fmt.Fprintf(stdout, "daemon is older than this CLI; restarting with %s\n", version.Version)
-				if err := daemon.Restart(socket); err != nil {
+				if err := daemon.Restart(socket, log); err != nil {
 					return err
 				}
 				_, _ = fmt.Fprintf(stdout, "daemon restarted\nsocket: %s\ndb: %s\nlog: %s\n", socket, db, log)
@@ -216,15 +233,15 @@ func runDaemon(args []string, stdout io.Writer) error {
 			_, _ = fmt.Fprintf(stdout, "daemon already running\npid: %v\nsocket: %s\ndb: %s\nlog: %s\n", response.Payload["pid"], response.Payload["socket_path"], response.Payload["db_path"], response.Payload["log_path"])
 			return nil
 		}
-		if background {
-			_, _ = fmt.Fprintf(stdout, "starting daemon in background...\n")
-			if err := daemon.StartBackground(socket); err != nil {
-				return err
-			}
-			_, _ = fmt.Fprintf(stdout, "daemon started\nsocket: %s\ndb: %s\nlog: %s\n", socket, db, log)
-			return nil
+		if foreground {
+			return runDaemonForeground(daemon.Config{SocketPath: socket, DBPath: db, PIDPath: pid, LogPath: log})
 		}
-		return daemon.New(daemon.Config{SocketPath: socket, DBPath: db, PIDPath: pid, LogPath: log}).Run(context.Background())
+		_, _ = fmt.Fprintf(stdout, "starting daemon in background...\n")
+		if err := startDaemonBackground(socket, log); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stdout, "daemon started\nsocket: %s\ndb: %s\nlog: %s\n", socket, db, log)
+		return nil
 	case "health":
 		response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth})
 		if err != nil {
@@ -248,7 +265,7 @@ func runDaemon(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "daemon: %s\n", response.Payload["status"])
 		return nil
 	default:
-		return errors.New("usage: pane daemon start [--background]|stop|health|status")
+		return errors.New(daemonUsage)
 	}
 }
 

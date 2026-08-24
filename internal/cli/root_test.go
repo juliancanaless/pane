@@ -4,7 +4,78 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/juliancanalez/pane/internal/daemon"
 )
+
+// recordForegroundRuns substitutes the blocking-daemon seam so flag parsing can
+// be tested without running a daemon.
+func recordForegroundRuns(t *testing.T) *int {
+	t.Helper()
+	count := 0
+	original := runDaemonForeground
+	runDaemonForeground = func(daemon.Config) error {
+		count++
+		return nil
+	}
+	t.Cleanup(func() { runDaemonForeground = original })
+	return &count
+}
+
+func TestRunDaemonStartBackgroundsByDefault(t *testing.T) {
+	tempDaemonPaths(t)
+	started := recordDaemonStarts(t, nil)
+	foreground := recordForegroundRuns(t)
+
+	var stdout, stderr bytes.Buffer
+	if err := Run([]string{"daemon", "start"}, &stdout, &stderr); err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+	if len(*started) != 1 {
+		t.Fatalf("background starts = %d, want 1", len(*started))
+	}
+	if *foreground != 0 {
+		t.Fatalf("foreground runs = %d, want 0", *foreground)
+	}
+}
+
+func TestRunDaemonStartForegroundRunsBlockingDaemon(t *testing.T) {
+	tempDaemonPaths(t)
+	started := recordDaemonStarts(t, nil)
+	foreground := recordForegroundRuns(t)
+
+	for _, flag := range []string{"--foreground", "-f"} {
+		var stdout, stderr bytes.Buffer
+		if err := Run([]string{"daemon", "start", flag}, &stdout, &stderr); err != nil {
+			t.Fatalf("%s: Run returned error: %v", flag, err)
+		}
+	}
+	if *foreground != 2 {
+		t.Fatalf("foreground runs = %d, want 2", *foreground)
+	}
+	if len(*started) != 0 {
+		t.Fatalf("background starts = %d, want 0", len(*started))
+	}
+}
+
+func TestRunDaemonStartAcceptsBackgroundFlagAsNoOp(t *testing.T) {
+	tempDaemonPaths(t)
+	started := recordDaemonStarts(t, nil)
+	foreground := recordForegroundRuns(t)
+
+	for _, flag := range []string{"--background", "-b"} {
+		var stdout, stderr bytes.Buffer
+		if err := Run([]string{"daemon", "start", flag}, &stdout, &stderr); err != nil {
+			t.Fatalf("%s: Run returned error: %v", flag, err)
+		}
+	}
+	if len(*started) != 2 {
+		t.Fatalf("background starts = %d, want 2", len(*started))
+	}
+	if *foreground != 0 {
+		t.Fatalf("foreground runs = %d, want 0", *foreground)
+	}
+}
 
 func TestRunHelp(t *testing.T) {
 	var stdout, stderr bytes.Buffer

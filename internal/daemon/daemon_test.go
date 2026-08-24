@@ -2,7 +2,11 @@ package daemon
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -98,4 +102,69 @@ func TestHandleAgentContextAndMessages(t *testing.T) {
 	if !second.OK || second.Payload["count"] != 0 {
 		t.Fatalf("delivery must mark messages read; second = %#v", second)
 	}
+}
+
+func TestRunShutsDownOnSignal(t *testing.T) {
+	dir := t.TempDir()
+	config := Config{
+		SocketPath: filepath.Join(dir, "pane.sock"),
+		PIDPath:    filepath.Join(dir, "pane.pid"),
+		LogPath:    filepath.Join(dir, "pane.log"),
+	}
+	stdout, stderr := os.Stdout, os.Stderr
+	t.Cleanup(func() { os.Stdout, os.Stderr = stdout, stderr })
+
+	notified := make(chan chan<- os.Signal, 1)
+	originalNotify := signalNotify
+	signalNotify = func(c chan<- os.Signal, _ ...os.Signal) { notified <- c }
+	t.Cleanup(func() { signalNotify = originalNotify })
+
+	done := make(chan error, 1)
+	go func() { done <- New(config).Run(context.Background()) }()
+	signals := <-notified
+	waitHealthy(t, config.SocketPath)
+
+	signals <- syscall.SIGTERM
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("Run returned error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("daemon did not shut down after SIGTERM")
+	}
+
+	if _, err := os.Stat(config.SocketPath); !os.IsNotExist(err) {
+		t.Fatalf("socket not removed on shutdown: %v", err)
+	}
+	if _, err := os.Stat(config.PIDPath); !os.IsNotExist(err) {
+		t.Fatalf("pid file not removed on shutdown: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "pane.lock")); !os.IsNotExist(err) {
+		t.Fatalf("lock file not released on shutdown: %v", err)
+	}
+
+	log, err := os.ReadFile(config.LogPath)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if !strings.Contains(string(log), "received signal terminated; shutting down") {
+		t.Fatalf("shutdown not logged:\n%s", log)
+	}
+	wantStart := fmt.Sprintf("daemon starting on %s (version %s, pid %d)", config.SocketPath, version.Version, os.Getpid())
+	if !strings.Contains(string(log), wantStart) {
+		t.Fatalf("start line = %q, want it to contain %q", log, wantStart)
+	}
+}
+
+func waitHealthy(t *testing.T, socketPath string) {
+	t.Helper()
+	client := Client{SocketPath: socketPath, Timeout: time.Second}
+	for i := 0; i < 50; i++ {
+		if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("daemon never became healthy")
 }

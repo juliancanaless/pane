@@ -265,7 +265,8 @@ make restart # stop the current dev daemon, rebuild, and start it in the backgro
 ./bin/pane setup
 ./bin/pane setup --no-shell --no-daemon # install without editing shell rc or starting daemon
 ./bin/pane doctor
-./bin/pane daemon start
+./bin/pane daemon start             # detached; every pane command also starts it on demand
+./bin/pane daemon start --foreground # blocking, for debugging or a service manager
 ./bin/pane daemon status
 ```
 

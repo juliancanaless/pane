@@ -44,11 +44,17 @@ If `./bin/pane` does not exist, run:
 make build
 ```
 
-If Pane says the daemon is not running, ask for or start a daemon in a separate terminal:
+You do not need to start the daemon. Any Pane command that finds it down starts
+a detached one and retries, so a daemon killed along with a finished tool call
+comes back by itself. If a command still reports the daemon unreachable, start
+it and check the log:
 
 ```bash
 ./bin/pane daemon start
+./bin/pane daemon status
 ```
+
+`PANE_NO_AUTOSTART=1` turns the on-demand start off.
 
 ## During work
 

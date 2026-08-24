@@ -12,14 +12,14 @@ import (
 // StartBackground re-execs the daemon binary as a detached child process.
 // The parent waits up to 3 seconds for the child to become healthy,
 // then exits. Returns an error if the child fails to start.
-func StartBackground(socketPath string) error {
+func StartBackground(socketPath, logPath string) error {
 	executable, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
 
-	// Build args: we call ourselves with "daemon start" (without --background)
-	args := []string{executable, "daemon", "start"}
+	// --foreground, or the child would background itself again and fork forever.
+	args := []string{executable, "daemon", "start", "--foreground"}
 
 	devNull, err := os.Open(os.DevNull)
 	if err != nil {
@@ -27,9 +27,17 @@ func StartBackground(socketPath string) error {
 	}
 	defer devNull.Close()
 
+	// The child's stderr goes to the log so a panic before the daemon sets up
+	// its own logging leaves a trace instead of vanishing into /dev/null.
+	childStderr := devNull
+	if logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
+		defer logFile.Close()
+		childStderr = logFile
+	}
+
 	attr := &os.ProcAttr{
 		Dir:   "/",
-		Files: []*os.File{devNull, devNull, devNull}, // stdin, stdout, stderr → /dev/null
+		Files: []*os.File{devNull, devNull, childStderr},
 		Sys: &syscall.SysProcAttr{
 			Setsid: true, // new session — fully detached
 		},
@@ -57,7 +65,7 @@ func StartBackground(socketPath string) error {
 // Restart asks the daemon on socketPath to stop, waits for it to release the
 // socket, and starts a fresh background daemon from the current executable.
 // Used to replace a daemon left running by an older install.
-func Restart(socketPath string) error {
+func Restart(socketPath, logPath string) error {
 	client := Client{SocketPath: socketPath, Timeout: 1 * time.Second}
 	if _, err := client.Send(protocol.Request{Type: protocol.RequestDaemonStop}); err == nil {
 		for i := 0; i < 30; i++ {
@@ -67,5 +75,5 @@ func Restart(socketPath string) error {
 			}
 		}
 	}
-	return StartBackground(socketPath)
+	return StartBackground(socketPath, logPath)
 }

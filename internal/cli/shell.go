@@ -185,10 +185,11 @@ func runSetup(args []string, stdout io.Writer) error {
 		return nil
 	}
 	socket := store.DefaultSocketPath(home)
+	log := store.DefaultLogPath(home)
 	client := daemon.Client{SocketPath: socket}
 	if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
 		if version.IsOlder(response.DaemonVersion, version.Version) {
-			if err := daemon.Restart(socket); err != nil {
+			if err := daemon.Restart(socket, log); err != nil {
 				return err
 			}
 			_, _ = fmt.Fprintf(stdout, "daemon restarted with %s\n", version.Version)
@@ -197,7 +198,7 @@ func runSetup(args []string, stdout io.Writer) error {
 		_, _ = fmt.Fprintf(stdout, "daemon already running\n")
 		return nil
 	}
-	if err := daemon.StartBackground(socket); err != nil {
+	if err := startDaemonBackground(socket, log); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintf(stdout, "daemon started\n")

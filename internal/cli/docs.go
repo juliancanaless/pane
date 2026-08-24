@@ -131,6 +131,11 @@ Git guardrails:
 Workers:
   pane spawn <command> [args...]
 
+Daemon:
+  pane daemon start                 Start it detached (commands do this for you)
+  pane daemon start --foreground    Run it in this terminal, for debugging
+  pane daemon status                Version, pid, socket, DB, and log paths
+
 Setup/diagnostics:
   pane setup
   pane setup --claude
@@ -189,6 +194,12 @@ Q: Does Pane require a git repository?
 A: No. Outside a repository the workspace root is the current directory (or
    PANE_WORKSPACE_ROOT); branch, git guardrails, and --repo scope are off.
    Only an explicit pane init creates a session there.
+
+Q: Do I need to start the daemon?
+A: No. A command that finds it down starts a detached one and retries, so a
+   daemon killed with a finished agent tool call comes back on its own.
+   PANE_NO_AUTOSTART=1 turns that off; pane daemon start --foreground runs a
+   blocking daemon for debugging or a service manager.
 
 Q: How do upgrades reach the background daemon?
 A: Automatically. Any pane command that reaches a daemon older than the CLI

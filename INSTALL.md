@@ -69,7 +69,12 @@ pane setup
 `pane setup` refreshes the `~/.pane/bin` copies that the shell hook and git
 shim point at. The background daemon takes care of itself: the first `pane`
 command that reaches a daemon older than the CLI restarts it with the new
-binary automatically.
+binary automatically, and any command that finds no daemon at all starts a
+detached one and retries. That last part matters under coding agents, which
+kill the process group of a finished tool call and take a daemon started
+inside one with it. Set `PANE_NO_AUTOSTART=1` to turn it off, or run
+`pane daemon start --foreground` to keep a daemon in the terminal for
+debugging or under a service manager.
 
 ## Verify
 

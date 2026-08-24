@@ -46,6 +46,10 @@ Git is optional. Outside a repository, `workspace_root` falls back to `PANE_WORK
 
 The daemon stamps its release version on every response. A CLI that receives a response from an older daemon (or a pre-versioning one that stamps nothing) restarts it in place with the current binary after serving the response — this is how `brew upgrade` reaches the long-running daemon without manual intervention. An older CLI never downgrades a newer daemon.
 
+### Daemon liveness
+
+The daemon must outlive whatever started it. Coding agents kill the process group of a finished or timed-out tool call, so a daemon started inside one is killed minutes later, silently. Two properties keep the system usable: `pane daemon start` always spawns a `setsid`-detached child (`--foreground` is the opt-in blocking mode for debugging and service managers), and a CLI whose request cannot reach the socket starts a detached daemon and retries once, rate-limited to one attempt per 10 seconds via a stamp file next to the socket. `PANE_NO_AUTOSTART` disables the retry for callers that want a hard failure. The daemon handles SIGTERM, SIGINT, and SIGHUP so an ordinary kill logs a line and releases the socket, PID file, and lock instead of leaving stale state behind.
+
 ## Core components
 
 ### Analysis layer: `analysis/` and `internal/analysis`
@@ -73,7 +77,7 @@ Single binary entry point.
 
 It exposes commands such as:
 
-- `pane daemon start|status|health|stop`
+- `pane daemon start [--foreground]|status|health|stop`
 - `pane setup`
 - `pane doctor`
 - `pane init`

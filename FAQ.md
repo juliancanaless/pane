@@ -227,6 +227,20 @@ current binary (a `[Pane] daemon ... restarting` notice goes to stderr). A
 newer daemon is never downgraded by an older CLI. `pane doctor` and
 `pane daemon status` show both CLI and daemon versions.
 
+## The daemon disappears while a coding agent is working. Do I have to restart it?
+
+No. Agents kill the process group of a finished or timed-out tool call, which
+takes a daemon started inside one with it. Every `pane` command now starts a
+detached daemon when it finds none and retries the request once, so the next
+command heals it. Attempts are rate-limited to one per 10 seconds, and the
+daemon logs its version and pid on every start so `~/.pane/logs/pane.log` shows how
+often it is being replaced.
+
+```bash
+PANE_NO_AUTOSTART=1 pane board      # never auto-start
+pane daemon start --foreground      # blocking, for debugging or a service manager
+```
+
 ## Does Pane replace Git?
 
 No.

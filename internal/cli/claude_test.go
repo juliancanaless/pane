@@ -143,6 +143,7 @@ func TestTruncateStatusKeepsShortAndTrimsLong(t *testing.T) {
 func TestRunStatuslineReportsDaemonOffline(t *testing.T) {
 	restoreWorkingDir(t)
 	t.Setenv("PANE_SOCKET_PATH", filepath.Join(t.TempDir(), "missing.sock"))
+	t.Setenv("PANE_NO_AUTOSTART", "1")
 	var out bytes.Buffer
 	input := `{"session_id":"abc","cwd":"` + t.TempDir() + `"}`
 	if err := runStatusline(nil, strings.NewReader(input), &out); err != nil {
@@ -155,6 +156,7 @@ func TestRunStatuslineReportsDaemonOffline(t *testing.T) {
 
 func TestRunHookStopAllowsStopWhenLoopGuardActive(t *testing.T) {
 	t.Setenv("PANE_SOCKET_PATH", filepath.Join(t.TempDir(), "missing.sock"))
+	t.Setenv("PANE_NO_AUTOSTART", "1")
 	var out bytes.Buffer
 	input := agentHookInput{StopHookActive: true}
 	if err := runHookStop(input, &out); err != nil {
@@ -168,6 +170,7 @@ func TestRunHookStopAllowsStopWhenLoopGuardActive(t *testing.T) {
 func TestRunHookSessionStartSilentWhenDaemonDown(t *testing.T) {
 	restoreWorkingDir(t)
 	t.Setenv("PANE_SOCKET_PATH", filepath.Join(t.TempDir(), "missing.sock"))
+	t.Setenv("PANE_NO_AUTOSTART", "1")
 	var out bytes.Buffer
 	input := agentHookInput{SessionID: "abc", CWD: t.TempDir()}
 	if err := runHookSessionStart(input, &out); err != nil {
