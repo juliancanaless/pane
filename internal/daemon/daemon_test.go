@@ -140,9 +140,13 @@ func TestRunShutsDownOnSignal(t *testing.T) {
 	if _, err := os.Stat(config.PIDPath); !os.IsNotExist(err) {
 		t.Fatalf("pid file not removed on shutdown: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "pane.lock")); !os.IsNotExist(err) {
-		t.Fatalf("lock file not released on shutdown: %v", err)
+	// The lock file stays on disk (removing it opens the two-daemons race,
+	// see ReleaseLock); released means the flock can be taken again.
+	relock, err := AcquireLock(filepath.Join(dir, "pane.lock"))
+	if err != nil {
+		t.Fatalf("lock not released on shutdown: %v", err)
 	}
+	ReleaseLock(relock)
 
 	log, err := os.ReadFile(config.LogPath)
 	if err != nil {

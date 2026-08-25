@@ -32,15 +32,17 @@ func AcquireLock(lockPath string) (*os.File, error) {
 	return f, nil
 }
 
-// ReleaseLock closes and removes the lock file.
+// ReleaseLock unlocks and closes the lock file, leaving the file in place so
+// every acquirer contends on the same inode. Removing it opens a race: a
+// starter that opened the file before the unlink keeps a lock on the old
+// inode while the next starter creates and locks a fresh one, and both
+// daemons believe they hold the lock.
 func ReleaseLock(f *os.File) {
 	if f == nil {
 		return
 	}
 	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-	name := f.Name()
 	_ = f.Close()
-	_ = os.Remove(name)
 }
 
 // CleanStale checks whether a previous daemon is still alive.

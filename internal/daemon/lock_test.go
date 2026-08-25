@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
@@ -68,6 +69,41 @@ func TestAcquireLock_WritesPID(t *testing.T) {
 	}
 	if pid != os.Getpid() {
 		t.Fatalf("lock file PID = %d, want %d", pid, os.Getpid())
+	}
+}
+
+func TestReleaseLock_KeepsFileSoContendersShareOneInode(t *testing.T) {
+	dir := t.TempDir()
+	lockPath := filepath.Join(dir, "test.lock")
+
+	f1, err := AcquireLock(lockPath)
+	if err != nil {
+		t.Fatalf("first lock failed: %v", err)
+	}
+
+	// A contender that opened the file before the holder released it. If
+	// release unlinked the file, the next acquirer would create a fresh inode
+	// and both could hold "the" lock at once — two daemons.
+	early, err := os.OpenFile(lockPath, os.O_RDWR, 0o644)
+	if err != nil {
+		t.Fatalf("open contender handle: %v", err)
+	}
+	defer early.Close()
+
+	ReleaseLock(f1)
+
+	if _, err := os.Stat(lockPath); err != nil {
+		t.Fatalf("lock file gone after release: %v", err)
+	}
+
+	f2, err := AcquireLock(lockPath)
+	if err != nil {
+		t.Fatalf("re-acquire after release failed: %v", err)
+	}
+	defer ReleaseLock(f2)
+
+	if err := syscall.Flock(int(early.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err == nil {
+		t.Fatal("early opener locked a second inode; two daemons could run at once")
 	}
 }
 
