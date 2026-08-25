@@ -241,6 +241,14 @@ PANE_NO_AUTOSTART=1 pane board      # never auto-start
 pane daemon start --foreground      # blocking, for debugging or a service manager
 ```
 
+On macOS, `pane setup` also registers the daemon as a launchd agent
+(`~/Library/LaunchAgents/com.pane.daemon.plist`), so launchd respawns it
+within seconds of a crash or kill without waiting for the next pane command.
+A clean `pane daemon stop` stays stopped. Daemon log lines are timestamped,
+so `~/.pane/logs/pane.log` shows exactly when each start and shutdown
+happened. To remove the agent: `launchctl bootout gui/$(id -u)/com.pane.daemon`
+and delete the plist.
+
 ## Does Pane replace Git?
 
 No.

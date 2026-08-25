@@ -186,6 +186,13 @@ func runSetup(args []string, stdout io.Writer) error {
 	}
 	socket := store.DefaultSocketPath(home)
 	log := store.DefaultLogPath(home)
+	if runtime.GOOS == "darwin" {
+		if err := daemon.InstallLaunchAgent(installedBin, socket, log, home); err != nil {
+			_, _ = fmt.Fprintf(stdout, "warn launchd agent not installed: %v\n", err)
+		} else {
+			_, _ = fmt.Fprintf(stdout, "installed launchd agent: %s\n", daemon.LaunchAgentPlistPath(home))
+		}
+	}
 	client := daemon.Client{SocketPath: socket}
 	if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {
 		if version.IsOlder(response.DaemonVersion, version.Version) {
@@ -226,6 +233,13 @@ func runDoctor(args []string, stdout io.Writer) error {
 	checkPath(stdout, "git shim", filepath.Join(store.DefaultShimDir(home), "git"))
 	if rcPath, err := defaultShellRC(home); err == nil {
 		checkShellHook(stdout, rcPath)
+	}
+	if runtime.GOOS == "darwin" {
+		if daemon.LaunchAgentLoaded() {
+			_, _ = fmt.Fprintf(stdout, "ok launchd agent loaded: %s\n", daemon.LaunchAgentPlistPath(home))
+		} else {
+			_, _ = fmt.Fprintf(stdout, "warn launchd agent not loaded; run `pane setup` to enable crash respawn\n")
+		}
 	}
 	client := daemon.Client{SocketPath: store.DefaultSocketPath(home)}
 	if response, err := client.Send(protocol.Request{Type: protocol.RequestDaemonHealth}); err == nil && response.OK {

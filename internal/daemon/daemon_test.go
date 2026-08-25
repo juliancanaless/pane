@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -158,6 +159,12 @@ func TestRunShutsDownOnSignal(t *testing.T) {
 	wantStart := fmt.Sprintf("daemon starting on %s (version %s, pid %d)", config.SocketPath, version.Version, os.Getpid())
 	if !strings.Contains(string(log), wantStart) {
 		t.Fatalf("start line = %q, want it to contain %q", log, wantStart)
+	}
+	timestamped := regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [+-]\d{4} `)
+	for _, line := range strings.Split(strings.TrimSpace(string(log)), "\n") {
+		if !timestamped.MatchString(line) {
+			t.Fatalf("log line missing timestamp: %q", line)
+		}
 	}
 }
 

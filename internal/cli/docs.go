@@ -198,8 +198,10 @@ A: No. Outside a repository the workspace root is the current directory (or
 Q: Do I need to start the daemon?
 A: No. A command that finds it down starts a detached one and retries, so a
    daemon killed with a finished agent tool call comes back on its own.
-   PANE_NO_AUTOSTART=1 turns that off; pane daemon start --foreground runs a
-   blocking daemon for debugging or a service manager.
+   On macOS, pane setup also registers a launchd agent that respawns the
+   daemon after a crash; a clean pane daemon stop stays stopped.
+   PANE_NO_AUTOSTART=1 turns auto-start off; pane daemon start --foreground
+   runs a blocking daemon for debugging or a service manager.
 
 Q: How do upgrades reach the background daemon?
 A: Automatically. Any pane command that reaches a daemon older than the CLI

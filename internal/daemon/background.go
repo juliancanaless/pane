@@ -9,10 +9,18 @@ import (
 	"github.com/juliancanalez/pane/internal/protocol"
 )
 
-// StartBackground re-execs the daemon binary as a detached child process.
-// The parent waits up to 3 seconds for the child to become healthy,
-// then exits. Returns an error if the child fails to start.
+// StartBackground starts the daemon detached and waits up to 3 seconds for it
+// to become healthy. When the launchd agent is registered (macOS), launchd is
+// asked to start its job instead of spawning directly — a directly spawned
+// daemon would hold the flock and leave launchd's KeepAlive child in a
+// respawn loop against it.
 func StartBackground(socketPath, logPath string) error {
+	if launchAgentLoaded() {
+		if err := kickstartLaunchAgent(); err == nil {
+			return waitUntilHealthy(socketPath)
+		}
+	}
+
 	executable, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("resolve executable: %w", err)
@@ -50,7 +58,10 @@ func StartBackground(socketPath, logPath string) error {
 	// Release the process so it doesn't become a zombie
 	_ = proc.Release()
 
-	// Wait for the daemon to become healthy
+	return waitUntilHealthy(socketPath)
+}
+
+func waitUntilHealthy(socketPath string) error {
 	client := Client{SocketPath: socketPath, Timeout: 1 * time.Second}
 	for i := 0; i < 30; i++ {
 		time.Sleep(100 * time.Millisecond)

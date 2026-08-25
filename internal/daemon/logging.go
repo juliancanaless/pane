@@ -4,7 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+// logf writes one timestamped line to the daemon log. It reads os.Stderr at
+// call time because SetupLogging reassigns it to the log file.
+func logf(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, time.Now().Format("2006-01-02 15:04:05 -0700")+" "+format+"\n", args...)
+}
 
 const (
 	maxLogSize    = 10 * 1024 * 1024 // 10 MB

@@ -81,7 +81,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		ReleaseLock(lockFile)
 		return err
 	} else if cleaned {
-		fmt.Fprintf(os.Stderr, "cleaned stale daemon state\n")
+		logf("cleaned stale daemon state")
 	}
 
 	// Set up log redirection and rotation
@@ -95,7 +95,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "daemon starting on %s (version %s, pid %d)\n", d.config.SocketPath, version.Version, os.Getpid())
+	logf("daemon starting on %s (version %s, pid %d)", d.config.SocketPath, version.Version, os.Getpid())
 
 	stop := make(chan struct{})
 	var stopOnce sync.Once
@@ -107,7 +107,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	go func() {
 		select {
 		case received := <-signals:
-			fmt.Fprintf(os.Stderr, "received signal %s; shutting down\n", received)
+			logf("received signal %s; shutting down", received)
 			requestStop()
 		case <-stop:
 		}
